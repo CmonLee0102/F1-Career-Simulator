@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 LIFE — 車手生涯 (快速版)</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <span class="logo">F1</span>
+      <h1>LIFE · 車手生涯</h1>
+      <div class="who">
+        <b id="hName">—</b> <span class="dnum" id="hNum">#0</span><br>
+        <span id="hTeam" style="color:var(--lgrey)">—</span>
+      </div>
+    </div>
+    <div class="status-bar">
+      <div class="st"><div class="l">年齡</div><div class="v" id="hAge">18</div></div>
+      <div class="st"><div class="l">賽季 · 分站</div><div class="v"><span id="hSeason">1</span> · <span id="hRound">1/9</span></div></div>
+      <div class="st"><div class="l">聲望</div><div class="v" id="hRep">20</div></div>
+      <div class="st"><div class="l">積分</div><div class="v" id="hPts">0</div></div>
+    </div>
+  </header>
+
+  <div class="attrs" id="attrStrip"></div>
+
+  <div id="feed"></div>
+
+  <div class="actionbar">
+    <button class="btn btn-primary" id="mainBtn">下一場 ▶</button>
+    <button class="btn btn-ghost" id="ffBtn" title="模擬整季">⏩ 整季</button>
+  </div>
+</div>
+
+<!-- 現場直播賽事 -->
+<div class="race-stage" id="raceStage">
+  <div class="rs-head">
+    <span class="rs-track" id="rsTrack">—</span>
+    <span class="rs-wx" id="rsWx"></span>
+    <span class="rs-lap" id="rsLap">LAP 1</span>
+  </div>
+  <div class="rs-flag"></div>
+  <div class="rs-big"><div class="rs-pos" id="rsPos">P–</div><div class="rs-delta" id="rsDelta"></div></div>
+  <div class="rs-track-bar"><div class="rs-car" id="rsCar">🏎️</div></div>
+  <div class="rs-tower" id="rsTower"></div>
+  <div class="rs-flash" id="rsFlash"></div>
+</div>
+
+<!-- 事件抉擇 -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <span class="mtag" id="mTag">突發事件</span>
+    <h3 id="mTitle"></h3>
+    <p class="md" id="mDesc"></p>
+    <div class="choices" id="mChoices"></div>
+  </div>
+</div>
+
+<!-- 開始畫面 -->
+<div class="screen show" id="startScreen">
+  <div class="sinner">
+    <div class="slogo"><span class="logo">F1</span> LIFE · 車手生涯</div>
+    <p class="ssub">從青訓到傳奇 — 一路點下去，五分鐘走完一生 🏁</p>
+    <div class="row">
+      <div class="field grow"><label>車手名字</label><input id="inName" maxlength="14" placeholder="輸入你的名字" autocomplete="off"></div>
+      <div class="field n"><label>號碼</label><input id="inNum" type="number" min="2" max="99" value="7"></div>
+    </div>
+    <div class="field"><label>出生國家</label><select id="inCountry"></select></div>
+    <div class="field">
+      <label>起步方式</label>
+      <div class="mode-pick" id="modePick">
+        <div class="mopt sel" data-mode="karting"><div class="mt">🏎️ 從卡丁車起步</div><div class="mdz">卡丁→F4→F3→F2→F1，完整成長弧（推薦）</div></div>
+        <div class="mopt" data-mode="f1"><div class="mt">🏁 直接進 F1</div><div class="mdz">18 歲直接坐上 F1 後段班，快速上手</div></div>
+      </div>
+    </div>
+    <div class="field">
+      <label>天賦（難度）</label>
+      <select id="inTalent">
+        <option value="80">天才新星 — 成長快、上限高（簡單）</option>
+        <option value="62" selected>可造之材 — 標準生涯（普通）</option>
+        <option value="45">大器晚成 — 成長慢、要靠努力（困難）</option>
+      </select>
+    </div>
+    <div class="serr" id="startErr"></div>
+    <button class="btn-start" id="startBtn">🏁 展開生涯</button>
+    <div style="text-align:center;margin-top:12px"><button class="btn-ghost" id="continueBtn" style="display:none;padding:9px 16px;border-radius:8px;cursor:pointer">繼續上次的生涯 ▶</button></div>
+  </div>
+</div>
+
+<!-- 退休畫面 -->
+<div class="screen" id="retireScreen">
+  <div class="sinner">
+    <div class="slogo"><span class="logo">F1</span> 生涯落幕</div>
+    <div class="legacy"><div class="crown" id="legacyCrown">🏆</div><div class="big" id="legacyTitle">—</div><div class="sub" id="legacySub"></div></div>
+    <div class="sumgrid" id="sumGrid"></div>
+    <div class="retire-cols">
+      <div class="rc-col">
+        <div class="ach-head">📜 職涯時間軸</div>
+        <div class="timeline" id="timeline"></div>
+      </div>
+      <div class="rc-col">
+        <div class="ach-head">🏅 生涯成就 <span id="achCount"></span></div>
+        <div class="ach-grid" id="achGrid"></div>
+        <div class="ach-grid" id="achLocked" style="display:none"></div>
+        <button class="expand-btn" id="achToggle" style="display:none"></button>
+      </div>
+    </div>
+    <button class="btn-start" id="againBtn">🔄 展開新的生涯</button>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
