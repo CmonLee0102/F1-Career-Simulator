@@ -25,17 +25,17 @@ const TIER_ORDER = ["KART","F4","F3","F2","F1"];
 
 /* ---------- F1 車隊 (2026)：perf 為賽車性能 ---------- */
 const TEAMS = [
-  {key:"Cadillac", name:"Cadillac",     perf:42, color:"#0b1f3a", salary:5},
-  {key:"Haas",     name:"Haas",         perf:50, color:"#b6babd", salary:6},
-  {key:"Alpine",   name:"Alpine",       perf:55, color:"#0093cc", salary:8},
-  {key:"Audi",     name:"Audi",         perf:58, color:"#bb0a30", salary:9},
-  {key:"RacingBulls",name:"Racing Bulls",perf:62,color:"#6692ff", salary:11},
-  {key:"Williams", name:"Williams",     perf:66, color:"#00a3e0", salary:13},
-  {key:"Aston",    name:"Aston Martin", perf:68, color:"#006f62", salary:16},
-  {key:"Mercedes", name:"Mercedes",     perf:84, color:"#27f4d2", salary:26},
-  {key:"Ferrari",  name:"Ferrari",      perf:86, color:"#e10600", salary:30},
-  {key:"RedBull",  name:"Red Bull",     perf:88, color:"#3671c6", salary:34},
-  {key:"McLaren",  name:"McLaren",      perf:90, color:"#ff8000", salary:38},
+  {key:"Cadillac", name:"Cadillac",     perf:42, color:"#0b1f3a", salary:2},
+  {key:"Haas",     name:"Haas",         perf:50, color:"#b6babd", salary:2},
+  {key:"Alpine",   name:"Alpine",       perf:55, color:"#0093cc", salary:3},
+  {key:"Audi",     name:"Audi",         perf:58, color:"#bb0a30", salary:4},
+  {key:"RacingBulls",name:"Racing Bulls",perf:62,color:"#6692ff", salary:4},
+  {key:"Williams", name:"Williams",     perf:66, color:"#00a3e0", salary:5},
+  {key:"Aston",    name:"Aston Martin", perf:68, color:"#006f62", salary:6},
+  {key:"Mercedes", name:"Mercedes",     perf:84, color:"#27f4d2", salary:10},
+  {key:"Ferrari",  name:"Ferrari",      perf:86, color:"#e10600", salary:12},
+  {key:"RedBull",  name:"Red Bull",     perf:88, color:"#3671c6", salary:14},
+  {key:"McLaren",  name:"McLaren",      perf:90, color:"#ff8000", salary:15},
 ];
 const teamByKey = k => TEAMS.find(t=>t.key===k);
 
@@ -100,7 +100,7 @@ function newGame(name, number, country, mode, talent){
     totals: {races:0, wins:0, podiums:0, poles:0, points:0, dnfs:0,
              titles:{KART:0,F4:0,F3:0,F2:0,F1:0}, wdc:0, bestWDC:99, seasons:0,
              firstWinAge:null, firstTitleAge:null, underdogWin:false},
-    teamHistory:{}, startMode:mode, badStreak:0, missNext:0, missReason:"", sponsor:null,
+    teamHistory:{}, startMode:mode, badStreak:0, missNext:0, missReason:"", sponsor:null, teamStint:0,
     timeline: [], over:false, lastResult:null,
   };
   ATTRS.forEach(a=>{ G.attrs[a.key] = clamp(baseAttr + rint(-6,6), 10, 60); });
@@ -177,10 +177,10 @@ function buildRace(){
   const thisRound = G.round + 1;
   const decisionLaps = [];
   if(G.decisionRounds && G.decisionRounds.includes(thisRound)){
-    const n = rint(1,2), used={};
+    const n = rint(2,3), used={};   // 決策賽 2~3 個決策點
     for(let i=0;i<n;i++){ let L, tries=0; do{ L=rint(2,laps-1); tries++; }while(used[L]&&tries<8); used[L]=1; decisionLaps.push(L); }
   }
-  const st = {t, track, wet, laps, cars, me, decisionLaps, unit:t.noise, lap:0, pole:false};
+  const st = {t, track, wet, laps, cars, me, decisionLaps, unit:t.noise, lap:0, pole:false, mod:null, extraDnf:0};
   st.pole = !me.dnf && rand() < (me.skill/(me.skill+45)) * 0.55;   // 賽前排位：強者較可能拿桿位
   rankCars(st);
   return st;
@@ -194,9 +194,16 @@ function advanceLap(st){
   st.cars.forEach(c=>{
     if(c.dnf) return;
     c.cum += c.skill + (rand()*2-1)*st.unit;
-    const p = c.e.isMe
+    // 玩家的策略持續效果（選胎/模式）：每圈加成、隨圈衰退、限定圈數
+    if(c.e.isMe && st.mod){
+      c.cum += st.mod.perLap;
+      st.mod.perLap -= (st.mod.degradePerLap || 0);
+      if(--st.mod.laps <= 0) st.mod = null;
+    }
+    let p = c.e.isMe
       ? (0.03 + (100-G.attrs.cons)/100*0.06 + (st.wet?0.03:0)) / st.laps
       : (0.05 + (st.wet?0.03:0)) / st.laps;
+    if(c.e.isMe) p += (st.extraDnf || 0);          // Push 模式提高的故障風險
     if(rand() < p){ c.dnf = true; c.cum = -1e9; if(c.e.isMe) c.dnfReason = pick(DNF_REASONS); }
   });
   rankCars(st);
@@ -404,6 +411,46 @@ const RACE_MOMENTS = [
         else { st.me.dnf=true; st.me.cum=-1e9; st.me.dnfReason="引擎過熱起火"; return "💨 引擎過熱冒煙，退賽！"; } }},
      {t:"保護引擎，穩紮穩打", s:"安全 · 顧全完賽", apply:st=>{ st.me.cum+=0.4*st.unit; bump("cons",1); return "🔧 你保護動力單元，穩定完賽。"; }},
    ]},
+
+  /* ===== 高影響力策略決策（跨多圈） ===== */
+  {tag:"進站策略", desc:st=>`第 ${st.lap} 圈 — 進站窗口開啟，要換哪種輪胎？`,
+   choices:[
+     {t:"🔴 軟胎全力衝刺", s:"前段爆發、後段掉速", risky:true, apply:st=>{
+        st.mod={perLap:st.unit*1.5, laps:Math.min(6, Math.max(1,st.laps-st.lap)), degradePerLap:st.unit*0.38};
+        return "🔴 換上軟胎，前幾圈圈速炸裂 —— 但要撐住後段！"; }},
+     {t:"🟡 中性胎折衷", s:"速度與耐久兼顧", apply:st=>{
+        st.mod={perLap:st.unit*0.8, laps:Math.min(9, Math.max(1,st.laps-st.lap)), degradePerLap:st.unit*0.1};
+        return "🟡 中性胎，速度與耐久取得平衡。"; }},
+     {t:"⚪ 硬胎穩到終點", s:"慢但超耐久", apply:st=>{
+        st.mod={perLap:st.unit*0.45, laps:Math.max(1,st.laps-st.lap), degradePerLap:0}; bump("cons",1);
+        return "⚪ 換上硬胎，一路穩定守到最後。"; }},
+   ]},
+  {tag:"天氣突變", desc:st=>`第 ${st.lap} 圈 — 天空瞬間變色，眼看就要變天！`,
+   choices:[
+     {t:"🌧️ 立刻進站換全雨胎", s:"賭下雨 · 賭對海放全場", risky:true, apply:st=>{
+        const rem=Math.max(1,st.laps-st.lap);
+        if(rand()<0.55){ st.wet=true; st.mod={perLap:st.unit*2.3, laps:rem, degradePerLap:0}; return "🌧️ 果然傾盆大雨！你早換雨胎，海放全場狂追！"; }
+        st.mod={perLap:-st.unit*1.7, laps:Math.min(4,rem), degradePerLap:-st.unit*0.4}; return "☀️ 雨遲遲沒下，雨胎在乾地上慢得像散步…"; }},
+     {t:"💧 換半雨胎（inters）", s:"折衷 · 小雨剛好、乾濕都湊合", risky:true, apply:st=>{
+        const rem=Math.max(1,st.laps-st.lap); const r=rand();
+        if(r<0.45){ st.wet=true; st.mod={perLap:st.unit*1.4, laps:rem, degradePerLap:0}; return "💧 小雨綿綿，半雨胎剛剛好，穩穩前進！"; }
+        else if(r<0.75){ st.mod={perLap:st.unit*0.3, laps:Math.min(5,rem), degradePerLap:0}; return "🌤️ 天氣曖昧，半雨胎將就能跑。"; }
+        st.mod={perLap:-st.unit*1.1, laps:Math.min(4,rem), degradePerLap:0}; return "☀️ 結果放晴，半雨胎有點吃虧。"; }},
+     {t:"⏳ 留在場上觀望", s:"賭天氣不變", apply:st=>{
+        const rem=Math.max(1,st.laps-st.lap);
+        if(rand()<0.5){ st.wet=true; st.mod={perLap:-st.unit*1.9, laps:Math.min(4,rem), degradePerLap:0}; return "🌧️ 突然下雨你還穿乾胎，一路打滑掉速！"; }
+        st.mod={perLap:st.unit*0.5, laps:rem, degradePerLap:0}; return "☀️ 天氣沒變，你賭對了，維持節奏。"; }},
+   ]},
+  {tag:"節奏模式", desc:st=>`第 ${st.lap} 圈 — 工程師：「Push 還是 Save？你決定。」`,
+   choices:[
+     {t:"🔥 Push！全力進攻", s:"更快數圈 · 傷胎並提高故障風險", risky:true, apply:st=>{
+        st.mod={perLap:st.unit*1.35, laps:Math.min(5,Math.max(1,st.laps-st.lap)), degradePerLap:st.unit*0.22};
+        st.extraDnf=(st.extraDnf||0)+0.012;
+        return "🔥 Push 模式全開，圈速起飛 —— 但輪胎與引擎壓力山大！"; }},
+     {t:"🧊 Save 保胎保油", s:"先收後放 · 顧完賽、留後勁", apply:st=>{
+        st.mod={perLap:-st.unit*0.3, laps:Math.min(6,Math.max(1,st.laps-st.lap)), degradePerLap:-st.unit*0.16};
+        return "🧊 你收著跑保護輪胎與燃油，後段將更有本錢反攻。"; }},
+   ]},
 ];
 function raceMoment(st, done){
   const m = pick(RACE_MOMENTS);
@@ -474,6 +521,7 @@ function endSeason(){
     if(champ && tot.firstTitleAge==null) tot.firstTitleAge = G.age;
     G.badStreak = (myPos>=17) ? (G.badStreak||0)+1 : 0;           // 連續低迷（車手榜 17 名以後）追蹤
     G.lastWDCPos = myPos;                                         // 本季車手榜名次（供續約評估用）
+    G.teamStint = (G.teamStint||0) + 1;                          // 在現隊的連續年資（跳槽忠誠度用）
   }
   if(champ) tot.titles[G.tier]++;
   // 薪水
@@ -567,11 +615,11 @@ const SPONSOR_BRANDS = ["Velox 能量飲","Astra 銀行","NovaTech","Zephyr 航�
   "Orbit 保險","Titan 能源","Lumen 科技","Apex 運動","Zenith 汽車","Vantage 金融","Halcyon 航太","Meridian 醫療"];
 // 簽新代言：含期限，合約期間每季領款（大品牌報酬高但有形象風險）
 function offerNewSponsor(next){
-  const rep = G.rep, base = Math.round(6 + rep*0.4);
+  const rep = G.rep, base = Math.round(2 + rep*0.1);
   const deals = [
-    {name:"地方贊助商", pay:Math.max(3,Math.round(base*0.55)), years:2, risky:false},
+    {name:"地方贊助商", pay:Math.max(2,Math.round(base*0.55)), years:2, risky:false},
     {name:"品牌代言",   pay:base,                              years:3, risky:false},
-    {name:"國際大品牌", pay:Math.round(base*1.5),              years:3, risky:true },
+    {name:"國際大品牌", pay:Math.round(base*1.4),              years:3, risky:true },
   ];
   const choices = deals.map(d=>({
     label:`${d.risky?"🌟":"🤝"} ${d.name} <small>約 ${d.pay}M/季 · 為期 ${d.years} 季${d.risky?" · 有形象風險":""}</small>`,
@@ -608,14 +656,14 @@ const SPONSOR_EVENTS = [
   {tag:"活動", title:"品牌活動邀約",
    desc:n=>`「${n}」邀你出席品牌大型活動，但會佔用你的訓練時間。`,
    choices:n=>[
-     {t:"盛裝出席", s:"+聲望 +獎金 · 微耗體能", fn:()=>{ G.rep=clamp(G.rep+3,0,100); const b=rint(3,6); G.money+=b; bump("fit",-1);
+     {t:"盛裝出席", s:"+聲望 +獎金 · 微耗體能", fn:()=>{ G.rep=clamp(G.rep+3,0,100); const b=rint(1,3); G.money+=b; bump("fit",-1);
         return `活動圓滿成功，曝光度大增（聲望 +3，進帳 ${b}M）。`; }},
      {t:"婉拒、專心備賽", s:"+穩定", fn:()=>{ bump("cons",rint(1,3)); return `你留在基地備賽，狀態更沉穩。`; }},
    ]},
   {tag:"獎金", title:"贊助商績效獎金",
    desc:n=>`「${n}」對你近期的表現很滿意，提出一筆績效獎金。`,
    choices:n=>[
-     {t:"欣然收下", s:"+獎金", fn:()=>{ const b=rint(5,12); G.money+=b; return `你獲得 ${b}M 績效獎金。`; }},
+     {t:"欣然收下", s:"+獎金", fn:()=>{ const b=rint(2,5); G.money+=b; return `你獲得 ${b}M 績效獎金。`; }},
    ]},
   {tag:"爆紅", title:"代言廣告爆紅",
    desc:n=>`你為「${n}」拍的廣告在網路一夕爆紅，粉絲暴增。`,
@@ -705,12 +753,19 @@ function offerF1Seats(firstTime){
       label:`${badge}${tm.name} <small>賽車性能 ${tm.perf} · 年薪 ${tm.salary}M</small>`,
       risky: tm.perf>=80 && !o.stay,
       fn:()=>{ const staying = tm.key === G.teamKey;
+        // 忠誠度：在現隊待滿 2 年後主動跳槽 → 聲望下降（被釋出的非自願離隊不罰）
+        let loyaltyNote = "", loyaltyDrop = 0;
+        if(!staying && !firstTime && renewAllowed && (G.teamStint||0) >= 2){
+          loyaltyDrop = rint(4,9); G.rep = clamp(G.rep - loyaltyDrop, 0, 100);
+          loyaltyNote = ` 離開效力 ${G.teamStint} 季的老東家，外界議論紛紛（聲望 -${loyaltyDrop}）。`;
+        }
         if(firstTime){ G.tier="F1"; G.seasonsInTier=0; }
+        if(!staying) G.teamStint = 0;                     // 換隊 → 年資重新起算
         G.teamKey = tm.key; startSeason(); beginNextSeasonReady();
         if(staying) addCard(`<div class="ct"><span class="newsflag">🔁</span> 續約</div><div class="ch">留任 ${tm.name}</div>`+
                      `<div class="cb">你選擇與 <b>${tm.name}</b> 續約，再戰一季（性能 ${tm.perf}）。</div>`,"season");
         else addCard(`<div class="ct"><span class="newsflag">✍️</span> 簽約</div><div class="ch">加盟 ${tm.name}</div>`+
-                     `<div class="cb">下一季你將為 <b>${tm.name}</b> 出賽（性能 ${tm.perf}）。</div>`,"season"); }
+                     `<div class="cb">下一季你將為 <b>${tm.name}</b> 出賽（性能 ${tm.perf}）。${loyaltyNote}</div>`,"season"); }
     };
   });
   // 35 歲後可主動退役掛盔
@@ -771,7 +826,54 @@ function retire(){
   cs += `。最終於 ${G.age} 歲高掛頭盔 —— 被譽為「${title}」。${sub}`;
   $("#careerSummary").innerHTML = cs;
 
+  // 生涯最匹配的真實車手 + 匹配度
+  const m = matchDriver();
+  $("#matchBox").innerHTML = `<div class="mb-score">${m.score}<small>%</small></div>`+
+    `<div class="mb-info"><div class="mb-name">🏎️ ${m.d.name}</div><div class="mb-tag">${m.d.tag} · 與你的生涯最相似</div></div>`;
+
   $("#retireScreen").classList.add("show");
+}
+
+/* ---------- 生涯最匹配的真實車手 ---------- */
+// 各真實車手的生涯特徵（0~100）：冠軍力/勝場/登台/桿位/資歷/全面性
+const REAL_DRIVER_PROFILES = [
+  {name:"Lewis Hamilton",     tag:"歷史得分王",   champ:100,win:100,podium:100,pole:100,longevity:100,vers:90},
+  {name:"Michael Schumacher", tag:"紅色王朝",     champ:100,win:95, podium:95, pole:90, longevity:95, vers:85},
+  {name:"Max Verstappen",     tag:"新世代統治者", champ:85, win:92, podium:90, pole:80, longevity:65, vers:88},
+  {name:"Sebastian Vettel",   tag:"四冠王",       champ:80, win:82, podium:82, pole:88, longevity:90, vers:70},
+  {name:"Alain Prost",        tag:"教授",         champ:85, win:85, podium:90, pole:75, longevity:85, vers:75},
+  {name:"Ayrton Senna",       tag:"雨中大師",     champ:70, win:82, podium:82, pole:100,longevity:55, vers:100},
+  {name:"Fernando Alonso",    tag:"常青鬥士",     champ:55, win:62, podium:78, pole:58, longevity:100,vers:85},
+  {name:"Niki Lauda",         tag:"鋼鐵意志",     champ:70, win:65, podium:72, pole:65, longevity:80, vers:70},
+  {name:"Kimi Räikkönen",     tag:"冰人",         champ:45, win:55, podium:66, pole:55, longevity:100,vers:70},
+  {name:"Nico Rosberg",       tag:"一冠封神",     champ:45, win:52, podium:58, pole:68, longevity:65, vers:60},
+  {name:"Jenson Button",      tag:"冷靜大將",     champ:45, win:46, podium:56, pole:42, longevity:92, vers:82},
+  {name:"Charles Leclerc",    tag:"桿位快槍手",   champ:22, win:42, podium:56, pole:72, longevity:58, vers:65},
+  {name:"Felipe Massa",       tag:"差一步的亞軍", champ:28, win:38, podium:52, pole:48, longevity:85, vers:60},
+  {name:"Sergio Pérez",       tag:"中段班戰神",   champ:12, win:28, podium:48, pole:22, longevity:92, vers:72},
+  {name:"Nico Hülkenberg",    tag:"無台傳說",     champ:2,  win:4,  podium:12, pole:20, longevity:95, vers:65},
+  {name:"逐夢新人",           tag:"曇花一現",     champ:0,  win:0,  podium:3,  pole:3,  longevity:25, vers:40},
+];
+function matchDriver(){
+  const t = G.totals, races = Math.max(t.races, 1);
+  const champTable = [0,48,66,80,90,96,100];   // 冠軍數 → 偉大度
+  const p = {
+    champ:     champTable[Math.min(t.wdc||0, 6)],
+    win:       clamp(Math.sqrt(t.wins/races)*175, 0, 100),      // 用平方根曲線校正比率
+    podium:    clamp(Math.sqrt(t.podiums/races)*135, 0, 100),
+    pole:      clamp(Math.sqrt(t.poles/races)*175, 0, 100),
+    longevity: clamp(t.seasons/18*100, 0, 100),
+    vers:      clamp(((G.attrs.wet||50)+(G.attrs.cons||50))/2, 0, 100),
+  };
+  const W = {champ:0.30, win:0.22, podium:0.18, pole:0.10, longevity:0.12, vers:0.08};
+  let best = null;
+  for(const d of REAL_DRIVER_PROFILES){
+    let dist = 0;
+    for(const k in W) dist += W[k] * Math.abs(p[k] - d[k]);
+    const score = Math.round(clamp(100 - dist, 0, 100));
+    if(!best || score > best.score) best = {d, score};
+  }
+  return best;
 }
 
 /* ---------- 生涯成就評鑑 ---------- */
@@ -787,8 +889,8 @@ function evaluateAchievements(){
     {icon:"🌍", name:"世界冠軍",           desc:"至少奪下 1 座 F1 世界冠軍",        got: t.wdc>=1},
     {icon:"⭐", name:"天才之星",           desc:"23 歲前就登上世界冠軍寶座",       got: t.firstTitleAge!=null && t.firstTitleAge<=23},
     {icon:"🌱", name:"大器晚成",           desc:"32 歲後才拿下 F1 生涯首勝",        got: t.firstWinAge!=null && t.firstWinAge>=32},
-    {icon:"💰", name:"大富翁",             desc:"生涯累積身價達 200M",             got: money>=200},
-    {icon:"🤑", name:"億萬車神",           desc:"生涯累積身價達 400M",             got: money>=400},
+    {icon:"💰", name:"大富翁",             desc:"生涯累積身價達 100M",             got: money>=100},
+    {icon:"🤑", name:"億萬車神",           desc:"生涯累積身價達 200M",             got: money>=200},
     {icon:"🏎️", name:"常勝軍",             desc:"生涯累積 30 場以上分站冠軍",       got: t.wins>=30},
     {icon:"🏁", name:"首勝達成",           desc:"贏得生涯第一場大獎賽",            got: t.wins>=1},
     {icon:"🍾", name:"頒獎台常客",         desc:"生涯 50 次以上站上頒獎台",         got: t.podiums>=50},
@@ -867,19 +969,19 @@ function maybeEvent(){
 /*  投資訓練：花資產提升能力，但有失敗風險                    */
 /* ========================================================= */
 const INVESTMENTS = [
-  {icon:"🏋️", name:"高強度訓練營", cost:14, chance:0.72, boost:"提升 體能",
+  {icon:"🏋️", name:"高強度訓練營", cost:9, chance:0.72, boost:"提升 體能",
      ok:()=>{ bump("fit",rint(4,8)); return "魔鬼課表見效，體能大幅提升！"; },
      bad:()=>{ bump("fit",-rint(1,3)); return "訓練過度拉傷，體能不升反降…"; }},
-  {icon:"🖥️", name:"私人模擬器", cost:18, chance:0.75, boost:"提升 速度 或 車技",
+  {icon:"🖥️", name:"私人模擬器", cost:12, chance:0.75, boost:"提升 速度 或 車技",
      ok:()=>{ const k=pick(["pace","craft"]); bump(k,rint(4,7)); return (k==="pace"?"單圈速度":"車技")+"顯著進步！"; },
      bad:()=>{ return "設備水土不服，這筆錢幾乎打了水漂。"; }},
-  {icon:"🧠", name:"運動心理師", cost:12, chance:0.78, boost:"提升 穩定",
+  {icon:"🧠", name:"運動心理師", cost:8, chance:0.78, boost:"提升 穩定",
      ok:()=>{ bump("cons",rint(4,7)); return "心態更沉穩，失誤明顯變少！"; },
      bad:()=>{ return "頻率對不上，沒什麼效果。"; }},
-  {icon:"🌧️", name:"雨天特訓", cost:12, chance:0.70, boost:"提升 濕地",
+  {icon:"🌧️", name:"雨天特訓", cost:8, chance:0.70, boost:"提升 濕地",
      ok:()=>{ bump("wet",rint(5,9)); return "雨戰能力大增，下雨就是你的舞台！"; },
      bad:()=>{ bump("fit",-rint(1,2)); return "冒雨苦練反而感冒，狀態略降。"; }},
-  {icon:"📣", name:"頂級公關團隊", cost:20, chance:0.70, boost:"提升 聲望",
+  {icon:"📣", name:"頂級公關團隊", cost:13, chance:0.70, boost:"提升 聲望",
      ok:()=>{ G.rep=clamp(G.rep+rint(5,10),0,100); return "形象行銷成功，聲望大漲！"; },
      bad:()=>{ G.rep=clamp(G.rep-rint(2,5),0,100); return "行銷翻車引發爭議，聲望受損！"; }},
 ];
@@ -1131,7 +1233,7 @@ function bumpPlayCount(){
 }
 
 /* ---------- 首頁跑馬燈新聞條 ---------- */
-const NEWS_TEXT = "🏁 大改版更新！✨ 排版更新、💰 資產與投資系統、🤝 多年期代言合約（還會遇到贊助商爆醜聞、財務危機）、⚠️ 突發傷病、🌍 全球遊玩次數、✨ 退休畫面重整、🌐 更多國籍與更耐玩的職涯機制。快建立你的車手，展開屬於你的傳奇 🏆";
+const NEWS_TEXT = "🏁 最新更新！🛞 賽中策略決策：進站選軟／中／硬胎、天氣突變賭半雨／全雨胎、Push／Save 模式切換（跨多圈影響戰局）；🤝 續約要看成績、強隊開爛會被換掉、同隊滿兩年跳槽掉聲望；🏆 退休顯示與你最相似的真實車手＋匹配度；💰 資產投資、多年期代言（含贊助商醜聞）、⚠️ 突發傷病、🌍 全球遊玩次數。快展開屬於你的傳奇 🏆";
 function initNews(){
   const el = $("#newsContent"); if(!el) return;
   const sep = "　　🏁　　";

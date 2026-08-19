@@ -201,6 +201,15 @@
     border-left:3px solid var(--red);border-radius:10px;padding:14px 16px;margin-bottom:18px;
     font-size:14px;line-height:1.75;color:#d7d7dd}
   .career-summary .cs-name{color:var(--gold);font-weight:800}
+  /* 生涯最匹配車手 */
+  .match-box{background:linear-gradient(180deg,#26261c,#1b1b15);border:1px solid rgba(255,213,74,.4);border-radius:10px;
+    padding:12px 14px;display:flex;align-items:center;gap:13px;box-shadow:0 3px 12px rgba(0,0,0,.3)}
+  .match-box .mb-score{font-family:var(--num);font-size:30px;font-weight:900;color:var(--gold);line-height:1;
+    text-shadow:0 0 14px rgba(255,213,74,.4);flex:0 0 auto}
+  .match-box .mb-score small{font-size:14px;font-weight:800}
+  .match-box .mb-info{flex:1;min-width:0}
+  .match-box .mb-name{font-size:15px;font-weight:800;color:var(--white)}
+  .match-box .mb-tag{font-size:11px;color:var(--lgrey);margin-top:2px}
   .legacy{text-align:center;margin:6px 0 18px}
   .legacy .big{font-size:40px;font-weight:900;color:var(--gold);text-shadow:0 0 24px rgba(255,213,74,.4);line-height:1.1}
   .legacy .sub{font-size:13px;color:var(--lgrey);margin-top:4px}
