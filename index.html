@@ -64,8 +64,16 @@
 <!-- 開始畫面 -->
 <div class="screen show" id="startScreen">
   <div class="sinner">
-    <div class="slogo"><span class="logo">F1</span> LIFE · 車手生涯</div>
+    <div class="slogo-row">
+      <div class="slogo"><span class="logo">F1</span> LIFE · 車手生涯</div>
+      <!-- 首頁跑馬燈新聞條（標題旁邊） -->
+      <div class="news-ticker" id="newsTicker">
+        <span class="news-label">📢 最新消息</span>
+        <div class="news-track"><div class="news-content" id="newsContent"></div></div>
+      </div>
+    </div>
     <p class="ssub">從青訓到傳奇 — 一路點下去，五分鐘走完一生 🏁</p>
+
     <div class="row">
       <div class="field grow"><label>車手名字</label><input id="inName" maxlength="14" placeholder="輸入你的名字" autocomplete="off"></div>
       <div class="field n"><label>號碼</label><input id="inNum" type="number" min="2" max="99" value="7"></div>

@@ -1117,6 +1117,16 @@ function bumpPlayCount(){
     .catch(()=>{});
 }
 
+/* ---------- 首頁跑馬燈新聞條 ---------- */
+const NEWS_TEXT = "🏁 大改版更新！✨ 排版更新、💰 資產與投資系統、🤝 多年期代言合約（還會遇到贊助商爆醜聞、財務危機）、⚠️ 突發傷病、🌍 全球遊玩次數、✨ 退休畫面重整、🌐 更多國籍與更耐玩的職涯機制。快建立你的車手，展開屬於你的傳奇 🏆";
+function initNews(){
+  const el = $("#newsContent"); if(!el) return;
+  const sep = "　　🏁　　";
+  el.textContent = (NEWS_TEXT + sep).repeat(2);          // 內容重複兩份，配合 translateX(-50%) 無縫循環
+  el.style.animationDuration = Math.max(20, NEWS_TEXT.length * 0.42).toFixed(0) + "s";  // 依字數調整速度
+}
+initNews();
+
 /* ---------- 綁定 ---------- */
 $("#mainBtn").onclick = ()=>nextRace();
 $("#ffBtn").onclick   = ()=>fastForwardSeason();
