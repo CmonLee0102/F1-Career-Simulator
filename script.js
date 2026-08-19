@@ -473,6 +473,7 @@ function endSeason(){
     G.teamHistory[G.teamKey] = (G.teamHistory[G.teamKey]||0)+1;   // 成就追蹤：效力各隊季數
     if(champ && tot.firstTitleAge==null) tot.firstTitleAge = G.age;
     G.badStreak = (myPos>=17) ? (G.badStreak||0)+1 : 0;           // 連續低迷（車手榜 17 名以後）追蹤
+    G.lastWDCPos = myPos;                                         // 本季車手榜名次（供續約評估用）
   }
   if(champ) tot.titles[G.tier]++;
   // 薪水
@@ -576,9 +577,9 @@ function offerNewSponsor(next){
     label:`${d.risky?"🌟":"🤝"} ${d.name} <small>約 ${d.pay}M/季 · 為期 ${d.years} 季${d.risky?" · 有形象風險":""}</small>`,
     risky:d.risky,
     fn:()=>{ let pay=d.pay, note="";
-      if(d.risky){
-        if(rand()<0.6){ G.rep=clamp(G.rep+3,0,100); note=" 開門紅，聲望 +3！"; }
-        else { pay=Math.round(pay*0.6); G.rep=clamp(G.rep-3,0,100); note=" 一簽約就捲入爭議，收入縮水、聲望 -3。"; }
+      if(d.risky){   // 大品牌純為收入風險，不影響車手的車隊行情（聲望）
+        if(rand()<0.6){ note=" 話題行銷成功，收入亮眼！"; }
+        else { pay=Math.round(pay*0.5); note=" 一簽約就捲入爭議，代言收入大幅縮水。"; }
       }
       const brand = pick(SPONSOR_BRANDS);
       G.sponsor = {name:d.name, brand:brand, pay:pay, seasonsLeft:d.years-1};   // 首期現在入帳，其餘各季自動領
@@ -673,9 +674,20 @@ function offerF1Seats(firstTime){
   const opts = [];
   const pushTeam = (tm, stay) => { if(tm && !opts.find(o=>o.tm.key===tm.key)) opts.push({tm, stay:!!stay}); };
   const pushIdx  = i => pushTeam(sorted[clamp(i,0,sorted.length-1)], false);
+  // 續約評估：本季表現是否對得起這台車。強隊（前段）對成績不佳者不續約
+  let renewAllowed = true, curDropped = false;
+  const cur = teamByKey(G.teamKey);
+  if(!firstTime && cur){
+    const teamRank = sorted.findIndex(t=>t.key===cur.key);     // 0=最弱 … 10=最強
+    const expectedPos = (sorted.length - teamRank) * 2;        // 車越好，期望名次越前
+    const myWDC = G.lastWDCPos || 20;
+    const ss = G.seasonStat;
+    const goodSeason = ss.wins>0 || ss.podiums>0 || myWDC <= expectedPos + 3;
+    if(teamRank >= 5 && !goodSeason){ renewAllowed = false; curDropped = true; }  // 前段隊 + 表現差 → 不續約
+  }
   if(firstTime){ pushIdx(0); pushIdx(1); }            // 新秀：只有後段班
   else {
-    pushTeam(teamByKey(G.teamKey), true);            // ★ 一定先給「續約留任現隊」
+    if(renewAllowed) pushTeam(cur, true);            // 表現達標才給「續約留任現隊」
     const reach = (G.seasonStat.wins>0 || G.seasonStat.podiums>=2) ? 2 : 1;  // 打出成績 → 挖得更高
     pushIdx(idx+reach); pushIdx(idx+1); pushIdx(idx); pushIdx(idx-1);
     if(G.seasonStat.wins>0) pushIdx(sorted.length-1);   // 有勝場，頂級隊必來敲門
@@ -685,7 +697,8 @@ function offerF1Seats(firstTime){
   const title = firstTime ? "🏁 登上 F1！" : "📝 季末合約";
   const desc  = firstTime
     ? "你一路過關斬將，終於拿到 F1 席位！選擇你的第一支車隊："
-    : `市場價值 ${Math.round(value)}（聲望 ${Math.round(rep)} · 實力 ${Math.round(skillPct)}）。你可以續約留任，或接受其他車隊的邀約：`;
+    : `市場價值 ${Math.round(value)}（聲望 ${Math.round(rep)} · 實力 ${Math.round(skillPct)}）。`
+      + (curDropped ? `⚠️ ${cur.name} 對你本季表現不滿意，未提供續約，你得另尋車隊。` : "你可以續約留任，或接受其他車隊的邀約：");
   const choices = uniq.map(o=>{
     const tm = o.tm, badge = o.stay ? "🔁 續約留任 · " : "";
     return {
