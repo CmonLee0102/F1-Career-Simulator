@@ -148,6 +148,7 @@
   .slogo{display:flex;align-items:center;gap:11px;font-size:20px;font-weight:900;margin-bottom:4px}
   .slogo .logo{font-weight:900;font-size:24px;font-style:italic;background:var(--red);color:#fff;padding:2px 11px;border-radius:5px}
   .ssub{color:var(--lgrey);font-size:14px;margin-bottom:22px}
+  .play-count{text-align:center;margin-top:16px;font-size:12px;color:var(--lgrey);font-family:var(--num);letter-spacing:.5px;min-height:16px}
   .field{margin-bottom:16px}
   .field>label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--lgrey);margin-bottom:7px;font-weight:700}
   .field input,.field select{width:100%;background:var(--dark);border:1px solid var(--grey);border-radius:8px;color:var(--white);
@@ -168,11 +169,20 @@
 
   /* Retirement */
   #retireScreen .sinner{max-width:600px}
-  .retire-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  .retire-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-bottom:20px}
   .retire-cols .rc-col{min-width:0}
   .retire-cols .ach-grid{grid-template-columns:1fr}
-  .retire-cols .timeline{max-height:none}
   @media(max-width:560px){.retire-cols{grid-template-columns:1fr;gap:6px}}
+  /* 職涯時間軸：固定高度的可捲動小框，不佔太多空間 */
+  .timeline.framed{max-height:200px;overflow-y:auto;border:1px solid var(--grey);box-shadow:inset 0 2px 10px rgba(0,0,0,.4)}
+  .timeline.framed::-webkit-scrollbar{width:7px}
+  .timeline.framed::-webkit-scrollbar-thumb{background:var(--red);border-radius:4px}
+  .timeline.framed::-webkit-scrollbar-track{background:transparent}
+  /* 職業生涯總結：填滿下方空白的收尾文字 */
+  .career-summary{background:linear-gradient(180deg,#22222d,#1a1a23);border:1px solid rgba(255,255,255,.06);
+    border-left:3px solid var(--red);border-radius:10px;padding:14px 16px;margin-bottom:18px;
+    font-size:14px;line-height:1.75;color:#d7d7dd}
+  .career-summary .cs-name{color:var(--gold);font-weight:800}
   .legacy{text-align:center;margin:6px 0 18px}
   .legacy .big{font-size:40px;font-weight:900;color:var(--gold);text-shadow:0 0 24px rgba(255,213,74,.4);line-height:1.1}
   .legacy .sub{font-size:13px;color:var(--lgrey);margin-top:4px}
@@ -200,6 +210,13 @@
   .ach-head::before{content:"";width:5px;height:16px;border-radius:2px;background:linear-gradient(180deg,var(--gold),#c8940f);box-shadow:0 0 10px rgba(255,213,74,.6)}
   .ach-head span{margin-left:auto;font-family:var(--num);color:var(--gold);font-size:13px}
   .ach-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:18px}
+  /* 生涯成就：固定高度可捲動小框，一次露出約 6 個 */
+  .ach-box{max-height:308px;overflow-y:auto;border:1px solid var(--grey);border-radius:10px;padding:8px;
+    background:linear-gradient(180deg,#191921,#141419);box-shadow:inset 0 2px 10px rgba(0,0,0,.4)}
+  .ach-box .ach-grid{margin-bottom:0}
+  .ach-box::-webkit-scrollbar{width:7px}
+  .ach-box::-webkit-scrollbar-thumb{background:var(--red);border-radius:4px}
+  .ach-box::-webkit-scrollbar-track{background:transparent}
   .ach{display:flex;gap:10px;align-items:center;padding:10px 11px;border-radius:11px;
     border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,#22222d,#1a1a23);transition:.18s;position:relative;overflow:hidden}
   .ach.got{border-color:rgba(255,213,74,.5);background:linear-gradient(180deg,#2a271b,#1e1c15);

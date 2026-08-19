@@ -89,6 +89,7 @@
     <div class="serr" id="startErr"></div>
     <button class="btn-start" id="startBtn">🏁 展開生涯</button>
     <div style="text-align:center;margin-top:12px"><button class="btn-ghost" id="continueBtn" style="display:none;padding:9px 16px;border-radius:8px;cursor:pointer">繼續上次的生涯 ▶</button></div>
+    <div class="play-count" id="playCount"></div>
   </div>
 </div>
 
@@ -98,16 +99,16 @@
     <div class="slogo"><span class="logo">F1</span> 生涯落幕</div>
     <div class="legacy"><div class="crown" id="legacyCrown">🏆</div><div class="big" id="legacyTitle">—</div><div class="sub" id="legacySub"></div></div>
     <div class="sumgrid" id="sumGrid"></div>
+    <div class="ach-head">📜 職涯時間軸</div>
+    <div class="timeline framed" id="timeline"></div>
     <div class="retire-cols">
       <div class="rc-col">
-        <div class="ach-head">📜 職涯時間軸</div>
-        <div class="timeline" id="timeline"></div>
+        <div class="ach-head">🏅 生涯成就 <span id="achCount"></span></div>
+        <div class="ach-box"><div class="ach-grid" id="achGrid"></div></div>
       </div>
       <div class="rc-col">
-        <div class="ach-head">🏅 生涯成就 <span id="achCount"></span></div>
-        <div class="ach-grid" id="achGrid"></div>
-        <div class="ach-grid" id="achLocked" style="display:none"></div>
-        <button class="expand-btn" id="achToggle" style="display:none"></button>
+        <div class="ach-head">🏁 職業生涯總結</div>
+        <div class="career-summary" id="careerSummary"></div>
       </div>
     </div>
     <button class="btn-start" id="againBtn">🔄 展開新的生涯</button>

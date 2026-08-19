@@ -331,8 +331,9 @@ function finishRacePost(){
   const t = TIERS[G.tier];
   if(G.round >= t.races){ hintSeasonEnd(); return; }
   const roll = rand();
-  if(roll < 0.07){ misfortune(); }          // 突發狀況 / 傷病
-  else if(roll < 0.27){ maybeEvent(); }     // 一般賽間事件（與賽中決策不同）
+  if(roll < 0.06){ misfortune(); }                       // 突發狀況 / 傷病
+  else if(G.sponsor && roll < 0.14){ sponsorEvent(); }   // 代言期間動態事件（醜聞、活動、獎金…）
+  else if(roll < 0.30){ maybeEvent(); }                  // 一般賽間事件
 }
 // 因傷病缺賽（現場版）：AI 照跑計分，玩家不計分並記為 DNS
 function playMissedRace(){
@@ -548,10 +549,11 @@ function decideNextSeat(myPos, champ){
 function seasonEndorsement(next){
   const s = G.sponsor;
   if(s && s.seasonsLeft > 0){
+    const bn = s.brand || s.name;
     G.money = (G.money||0) + s.pay;
     s.seasonsLeft--;
     const expired = s.seasonsLeft <= 0;
-    addCard(`<div class="ct"><span class="newsflag">🤝</span> 代言收入 · ${s.name}</div>`+
+    addCard(`<div class="ct"><span class="newsflag">🤝</span> 代言收入 · ${bn}</div>`+
             `<div class="cb">合約入帳 +${s.pay}M。${expired ? "本合約已到期，明年可簽新約。" : `合約尚餘 ${s.seasonsLeft} 季。`}（資產 ${G.money}M）</div>`,"season");
     if(expired) G.sponsor = null;
     updateHeader(); save();
@@ -559,6 +561,9 @@ function seasonEndorsement(next){
   }
   offerNewSponsor(next);
 }
+// 虛構贊助品牌名（讓代言事件更有戲）
+const SPONSOR_BRANDS = ["Velox 能量飲","Astra 銀行","NovaTech","Zephyr 航空","Kaion 手錶","Pulse 電信",
+  "Orbit 保險","Titan 能源","Lumen 科技","Apex 運動","Zenith 汽車","Vantage 金融","Halcyon 航太","Meridian 醫療"];
 // 簽新代言：含期限，合約期間每季領款（大品牌報酬高但有形象風險）
 function offerNewSponsor(next){
   const rep = G.rep, base = Math.round(6 + rep*0.4);
@@ -575,14 +580,71 @@ function offerNewSponsor(next){
         if(rand()<0.6){ G.rep=clamp(G.rep+3,0,100); note=" 開門紅，聲望 +3！"; }
         else { pay=Math.round(pay*0.6); G.rep=clamp(G.rep-3,0,100); note=" 一簽約就捲入爭議，收入縮水、聲望 -3。"; }
       }
-      G.sponsor = {name:d.name, pay:pay, seasonsLeft:d.years-1};   // 首期現在入帳，其餘各季自動領
+      const brand = pick(SPONSOR_BRANDS);
+      G.sponsor = {name:d.name, brand:brand, pay:pay, seasonsLeft:d.years-1};   // 首期現在入帳，其餘各季自動領
       G.money = (G.money||0) + pay; updateHeader(); save();
-      addCard(`<div class="ct"><span class="newsflag">🤝</span> 簽下代言 · ${d.name}</div>`+
-              `<div class="cb">為期 ${d.years} 季，每季約 ${pay}M；首期入帳 +${pay}M。${note}（資產 ${G.money}M）</div>`,"season");
+      addCard(`<div class="ct"><span class="newsflag">🤝</span> 簽下代言 · ${brand}</div>`+
+              `<div class="cb">與 <b>${brand}</b>（${d.name}）簽約，為期 ${d.years} 季、每季約 ${pay}M；首期入帳 +${pay}M。${note}（資產 ${G.money}M）</div>`,"season");
       next(); }
   }));
   choices.push({ label:"專注比賽，暫不接代言", fn:()=>{ next(); } });
   showModal(`🤝 季末代言 — 聲望 ${Math.round(rep)}`, "簽下代言合約，可在合約期間每季獲得資金：", choices, "代言");
+}
+
+/* ========================================================= */
+/*  代言期間的動態事件（有合約才會觸發）                      */
+/* ========================================================= */
+const SPONSOR_EVENTS = [
+  {tag:"醜聞", title:"贊助商爆醜聞",
+   desc:n=>`你的贊助商「${n}」被爆出財務造假醜聞，媒體天天堵麥追問你的立場。`,
+   choices:n=>[
+     {t:"公開切割、終止合約", s:"失去代言金 · 保住形象", fn:()=>{ G.sponsor=null; G.rep=clamp(G.rep-2,0,100);
+        return `你與「${n}」劃清界線並終止合約（往後不再有這筆代言金），聲望小幅受挫但守住了形象。`; }},
+     {t:"力挺贊助商到底", s:"風險：聲望大跌", risky:true, fn:()=>{ if(rand()<0.4){ G.rep=clamp(G.rep+2,0,100);
+        return `你選擇相信「${n}」，後來證實只是烏龍，你的義氣反而為你加了分。`; }
+        G.rep=clamp(G.rep-rint(4,8),0,100); return `你替「${n}」背書，結果醜聞屬實，被輿論一起圍剿，聲望大跌。`; }},
+   ]},
+  {tag:"活動", title:"品牌活動邀約",
+   desc:n=>`「${n}」邀你出席品牌大型活動，但會佔用你的訓練時間。`,
+   choices:n=>[
+     {t:"盛裝出席", s:"+聲望 +獎金 · 微耗體能", fn:()=>{ G.rep=clamp(G.rep+3,0,100); const b=rint(3,6); G.money+=b; bump("fit",-1);
+        return `活動圓滿成功，曝光度大增（聲望 +3，進帳 ${b}M）。`; }},
+     {t:"婉拒、專心備賽", s:"+穩定", fn:()=>{ bump("cons",rint(1,3)); return `你留在基地備賽，狀態更沉穩。`; }},
+   ]},
+  {tag:"獎金", title:"贊助商績效獎金",
+   desc:n=>`「${n}」對你近期的表現很滿意，提出一筆績效獎金。`,
+   choices:n=>[
+     {t:"欣然收下", s:"+獎金", fn:()=>{ const b=rint(5,12); G.money+=b; return `你獲得 ${b}M 績效獎金。`; }},
+   ]},
+  {tag:"爆紅", title:"代言廣告爆紅",
+   desc:n=>`你為「${n}」拍的廣告在網路一夕爆紅，粉絲暴增。`,
+   choices:n=>[
+     {t:"太讚了！", s:"+聲望", fn:()=>{ G.rep=clamp(G.rep+rint(3,6),0,100); return `廣告洗版社群，你的人氣水漲船高（聲望上升）。`; }},
+   ]},
+  {tag:"施壓", title:"贊助商施壓",
+   desc:n=>`成績不如預期，「${n}」放話再沒起色就要重新評估合約。`,
+   choices:n=>[
+     {t:"承諾拿出成績", s:"風險：壓力上身", risky:true, fn:()=>{ if(rand()<0.55){ bump("cons",2); return `你把壓力化為動力，心態更堅定。`; }
+        bump("cons",-rint(1,3)); return `壓力壓垮了節奏，你的穩定度下滑。`; }},
+     {t:"不甩、專注自己", s:"+穩定 · 聲望微降", fn:()=>{ bump("cons",2); G.rep=clamp(G.rep-1,0,100); return `你無視雜音專注比賽，心更靜，但贊助商不太高興。`; }},
+   ]},
+  {tag:"財務危機", title:"贊助商財務危機",
+   desc:n=>`「${n}」傳出資金週轉不靈，本季代言金恐怕拿不到。`,
+   choices:n=>[
+     {t:"協議提前解約", s:"止血", fn:()=>{ G.sponsor=null; return `你與「${n}」和平解約，避免更大的損失（合約終止）。`; }},
+     {t:"再觀望一季", s:"風險：血本無歸", risky:true, fn:()=>{ if(rand()<0.5){ return `對方撐過了難關，合約續行。`; }
+        G.sponsor=null; return `「${n}」最終倒閉，這季代言金泡湯、合約作廢。`; }},
+   ]},
+];
+function sponsorEvent(){
+  if(!G.sponsor) return;
+  const n = G.sponsor.brand || G.sponsor.name;
+  const ev = pick(SPONSOR_EVENTS);
+  showModal(`🤝 ${ev.title}`, ev.desc(n), ev.choices(n).map(c=>({
+    label:`${c.t} <small>${c.s}</small>`, risky:c.risky,
+    fn:()=>{ const res = c.fn(); updateHeader(); save();
+             addCard(`<div class="ct"><span class="newsflag">🤝</span> 代言 · ${ev.tag}</div><div class="cb">${res}</div>`,""); }
+  })), "代言");
 }
 // 連續低迷被 F1 釋出：還年輕就降回 F2 重新證明，太老則直接被淘汰退役
 function dropFromF1(){
@@ -678,23 +740,24 @@ function retire(){
   const achCard = a => `<div class="ach ${a.got?'got':'lock'}"><div class="ach-ic">${a.got?a.icon:'🔒'}</div>`+
     `<div class="ach-tx"><div class="ach-n">${a.name}</div><div class="ach-d">${a.desc}</div></div></div>`;
   $("#achCount").textContent = got.length + " / " + ach.length;
-  $("#achGrid").innerHTML = got.length ? got.map(achCard).join("")
-    : `<div class="muted" style="grid-column:1/-1;text-align:center;padding:8px">尚未解鎖任何成就 — 再拚一次生涯吧！</div>`;
-  const lockBox = $("#achLocked"), toggle = $("#achToggle");
-  lockBox.innerHTML = locked.map(achCard).join("");
-  lockBox.style.display = "none";
-  if(locked.length){
-    toggle.style.display = "block"; toggle.classList.remove("open");
-    toggle.innerHTML = `展開未解鎖成就（${locked.length}）<span class="arw">▾</span>`;
-    toggle.onclick = ()=>{ const open = lockBox.style.display !== "none";
-      lockBox.style.display = open ? "none" : "grid";
-      toggle.classList.toggle("open", !open);
-      toggle.innerHTML = (open ? `展開未解鎖成就（${locked.length}）` : `收合未解鎖成就`) + `<span class="arw">▾</span>`; };
-  } else { toggle.style.display = "none"; }
+  // 全部成就放進可捲動小框（已解鎖在前，其餘往下捲）
+  $("#achGrid").innerHTML = got.concat(locked).map(achCard).join("");
 
   $("#timeline").innerHTML = G.timeline.map(r=>
     `<div class="tl-row"><span class="tl-yr">${r.yr}</span><span class="tl-tx ${r.champ?'tl-medal':''}">${r.medal?r.medal+" ":""}${r.text}</span></div>`
   ).join("");
+
+  // 職業生涯總結（填滿下方空白的收尾文字）
+  const cy = COUNTRIES.find(x=>x[1]===G.country) || ["",""];
+  const teamsCount = Object.keys(G.teamHistory||{}).length;
+  const fromTier = G.startMode==="karting" ? "卡丁車" : "F1";
+  let cs = `<span class="cs-name">${cy[0]} ${G.name}</span>，來自${G.country}。從${fromTier}起步，生涯征戰 ${tot.seasons} 個賽季、共 ${tot.races} 場大獎賽`;
+  if(teamsCount>0) cs += `，效力過 ${teamsCount} 支 F1 車隊`;
+  cs += `。累積 ${tot.wins} 場分站冠軍、${tot.podiums} 次登上頒獎台、${tot.poles} 個桿位`;
+  if(tot.wdc>0) cs += `，並奪下 ${tot.wdc} 座世界冠軍 🏆`;
+  cs += `。最終於 ${G.age} 歲高掛頭盔 —— 被譽為「${title}」。${sub}`;
+  $("#careerSummary").innerHTML = cs;
+
   $("#retireScreen").classList.add("show");
 }
 
@@ -791,19 +854,19 @@ function maybeEvent(){
 /*  投資訓練：花資產提升能力，但有失敗風險                    */
 /* ========================================================= */
 const INVESTMENTS = [
-  {icon:"🏋️", name:"高強度訓練營", cost:14, chance:0.72,
+  {icon:"🏋️", name:"高強度訓練營", cost:14, chance:0.72, boost:"提升 體能",
      ok:()=>{ bump("fit",rint(4,8)); return "魔鬼課表見效，體能大幅提升！"; },
      bad:()=>{ bump("fit",-rint(1,3)); return "訓練過度拉傷，體能不升反降…"; }},
-  {icon:"🖥️", name:"私人模擬器", cost:18, chance:0.75,
+  {icon:"🖥️", name:"私人模擬器", cost:18, chance:0.75, boost:"提升 速度 或 車技",
      ok:()=>{ const k=pick(["pace","craft"]); bump(k,rint(4,7)); return (k==="pace"?"單圈速度":"車技")+"顯著進步！"; },
      bad:()=>{ return "設備水土不服，這筆錢幾乎打了水漂。"; }},
-  {icon:"🧠", name:"運動心理師", cost:12, chance:0.78,
+  {icon:"🧠", name:"運動心理師", cost:12, chance:0.78, boost:"提升 穩定",
      ok:()=>{ bump("cons",rint(4,7)); return "心態更沉穩，失誤明顯變少！"; },
      bad:()=>{ return "頻率對不上，沒什麼效果。"; }},
-  {icon:"🌧️", name:"雨天特訓", cost:12, chance:0.70,
+  {icon:"🌧️", name:"雨天特訓", cost:12, chance:0.70, boost:"提升 濕地",
      ok:()=>{ bump("wet",rint(5,9)); return "雨戰能力大增，下雨就是你的舞台！"; },
      bad:()=>{ bump("fit",-rint(1,2)); return "冒雨苦練反而感冒，狀態略降。"; }},
-  {icon:"📣", name:"頂級公關團隊", cost:20, chance:0.70,
+  {icon:"📣", name:"頂級公關團隊", cost:20, chance:0.70, boost:"提升 聲望",
      ok:()=>{ G.rep=clamp(G.rep+rint(5,10),0,100); return "形象行銷成功，聲望大漲！"; },
      bad:()=>{ G.rep=clamp(G.rep-rint(2,5),0,100); return "行銷翻車引發爭議，聲望受損！"; }},
 ];
@@ -813,7 +876,7 @@ function openInvest(){
   const opts = INVESTMENTS.map(inv=>{
     const afford = money >= inv.cost;
     return {
-      label:`${inv.icon} ${inv.name} <small>花費 ${inv.cost}M · 成功率 ${Math.round(inv.chance*100)}%${afford?"":" · 💸資金不足"}</small>`,
+      label:`${inv.icon} ${inv.name} <small>🔧 ${inv.boost}　·　花費 ${inv.cost}M · 成功率 ${Math.round(inv.chance*100)}%${afford?"":" · 💸資金不足"}</small>`,
       risky: afford && inv.chance <= 0.72,
       fn: ()=>{ if(!afford){ addCard(`<div class="ct"><span class="newsflag">💰</span> 投資</div><div class="cb">資產不足，無法進行「${inv.name}」（需 ${inv.cost}M）。</div>`,""); return; } doInvest(inv); }
     };
@@ -1018,12 +1081,40 @@ function initStart(){
     const num=clamp(parseInt($("#inNum").value)||7,1,99);
     const country=$("#inCountry").value;
     const talent=parseInt($("#inTalent").value);
+    bumpPlayCount();                       // 全球遊玩次數 +1
     $("#startScreen").classList.remove("show");
     $("#feed").innerHTML="";
     newGame(name,num,country,selMode,talent);
     setMainBtn("下一場 ▶", nextRace);
   };
   $("#againBtn").onclick=()=>{ $("#retireScreen").classList.remove("show"); $("#startScreen").classList.add("show"); };
+  fetchPlayCount();                        // 載入時顯示目前全球遊玩次數
+}
+
+/* ========================================================= */
+/*  全球總遊玩次數（免費計數 API：Abacus，免註冊、支援 CORS）  */
+/*  想避免與他人衝突可自行更換 COUNT_NS 命名空間               */
+/* ========================================================= */
+const COUNT_API = "https://abacus.jasoncameron.dev";
+const COUNT_NS  = "f1careerlifesim";   // 命名空間（可自訂，改了要先呼叫 /create 建立）
+const COUNT_KEY = "plays";
+function showPlayCount(n){
+  const el = $("#playCount");
+  if(el && typeof n === "number") el.textContent = `🌍 全球已開始 ${n.toLocaleString()} 段生涯`;
+}
+// Abacus 的 key 必須先 create 才會被 get 看到；抓不到就自動建立
+function fetchPlayCount(){
+  fetch(`${COUNT_API}/get/${COUNT_NS}/${COUNT_KEY}`)
+    .then(r=> r.ok ? r.json() : fetch(`${COUNT_API}/create/${COUNT_NS}/${COUNT_KEY}`).then(()=>({value:0})))
+    .then(d=>{ if(d && typeof d.value==="number") showPlayCount(d.value); })
+    .catch(()=>{});   // 離線或服務異常時靜默略過
+}
+function bumpPlayCount(){
+  const hit = ()=> fetch(`${COUNT_API}/hit/${COUNT_NS}/${COUNT_KEY}`).then(r=>r.json());
+  fetch(`${COUNT_API}/get/${COUNT_NS}/${COUNT_KEY}`)
+    .then(r=> r.ok ? hit() : fetch(`${COUNT_API}/create/${COUNT_NS}/${COUNT_KEY}`).then(hit))  // 沒建立就先建立再計數
+    .then(d=>{ if(d && typeof d.value==="number") showPlayCount(d.value); })
+    .catch(()=>{});
 }
 
 /* ---------- 綁定 ---------- */
