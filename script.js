@@ -616,11 +616,12 @@ const SPONSOR_BRANDS = ["Velox 能量飲","Astra 銀行","NovaTech","Zephyr 航�
 // 簽新代言：含期限，合約期間每季領款（大品牌報酬高但有形象風險）
 function offerNewSponsor(next){
   const rep = G.rep, base = Math.round(2 + rep*0.1);
+  // 代言等級依名氣（聲望）解鎖：新秀只有地方贊助商，成名後才有品牌代言、國際大品牌
   const deals = [
     {name:"地方贊助商", pay:Math.max(2,Math.round(base*0.55)), years:2, risky:false},
-    {name:"品牌代言",   pay:base,                              years:3, risky:false},
-    {name:"國際大品牌", pay:Math.round(base*1.4),              years:3, risky:true },
   ];
+  if(rep >= 42) deals.push({name:"品牌代言",   pay:base,             years:3, risky:false});
+  if(rep >= 68) deals.push({name:"國際大品牌", pay:Math.round(base*1.4), years:3, risky:true});
   const choices = deals.map(d=>({
     label:`${d.risky?"🌟":"🤝"} ${d.name} <small>約 ${d.pay}M/季 · 為期 ${d.years} 季${d.risky?" · 有形象風險":""}</small>`,
     risky:d.risky,
@@ -637,7 +638,9 @@ function offerNewSponsor(next){
       next(); }
   }));
   choices.push({ label:"專注比賽，暫不接代言", fn:()=>{ next(); } });
-  showModal(`🤝 季末代言 — 聲望 ${Math.round(rep)}`, "簽下代言合約，可在合約期間每季獲得資金：", choices, "代言");
+  const hint = rep < 42 ? "　（名氣還不夠，只有地方贊助商找上門，打出成績才會有大品牌。）"
+             : rep < 68 ? "　（再打響名號，就能簽下國際大品牌。）" : "";
+  showModal(`🤝 季末代言 — 聲望 ${Math.round(rep)}`, "簽下代言合約，可在合約期間每季獲得資金。"+hint, choices, "代言");
 }
 
 /* ========================================================= */
@@ -1101,12 +1104,13 @@ function renderSeasonCard(table, myPos, champ, teamName, salary){
   }).join("");
   const meRow = myPos>5 ? `<tr class="me"><td class="mp">${myPos}</td><td>${G.name}</td><td class="mpt">${table[myPos-1].pts}</td></tr>` : "";
   const ss = G.seasonStat;
+  const wdcChamp = champ && G.tier==="F1";                 // 世界冠軍 → 流動彩色邊框
   addCard(
     `<div class="ct">🏁 賽季 ${G.season} 結束 · ${TIERS[G.tier].name}</div>`+
-    `<div class="ch">${champ?"🏆 賽季冠軍！":"WDC 第 "+myPos+" 名"}</div>`+
+    `<div class="ch">${champ?(wdcChamp?"🏆 世界冠軍！":"🏆 賽季冠軍！"):"WDC 第 "+myPos+" 名"}</div>`+
     `<div class="cb">${teamName}｜${ss.wins} 勝 · ${ss.podiums} 登台 · ${ss.poles} 桿位 · ${ss.points} 分　<span style="color:var(--lgrey)">薪資 +${salary}M</span></div>`+
     `<table class="mini-tbl">${top}${meRow}</table>`,
-    "season");
+    "season" + (wdcChamp ? " champ-glow" : ""));
 }
 
 function updateHeader(){
@@ -1233,14 +1237,54 @@ function bumpPlayCount(){
 }
 
 /* ---------- 首頁跑馬燈新聞條 ---------- */
-const NEWS_TEXT = "🏁 最新更新！🛞 賽中策略決策：進站選軟／中／硬胎、天氣突變賭半雨／全雨胎、Push／Save 模式切換（跨多圈影響戰局）；🤝 續約要看成績、強隊開爛會被換掉、同隊滿兩年跳槽掉聲望；🏆 退休顯示與你最相似的真實車手＋匹配度；💰 資產投資、多年期代言（含贊助商醜聞）、⚠️ 突發傷病、🌍 全球遊玩次數。快展開屬於你的傳奇 🏆";
+const NEWS_TEXT = "🏁 最新更新！🌈 奪下世界冠軍有流動彩色慶祝；🛞 賽中策略決策：進站選軟／中／硬胎、天氣突變賭雨胎、Push／Save 模式（跨多圈影響戰局）；🤝 代言依名氣解鎖（新秀先從地方贊助商做起，成名才有大品牌）、續約要看成績、同隊滿兩年跳槽掉聲望；💵 薪資與身價重新平衡，更合理；🏆 退休顯示與你最相似的真實車手＋匹配度；💰 資產投資、⚠️ 突發傷病、🌍 全球遊玩次數。快展開屬於你的傳奇 🏆";
 function initNews(){
   const el = $("#newsContent"); if(!el) return;
   const sep = "　　🏁　　";
   el.textContent = (NEWS_TEXT + sep).repeat(2);          // 內容重複兩份，配合 translateX(-50%) 無縫循環
   el.style.animationDuration = Math.max(20, NEWS_TEXT.length * 0.42).toFixed(0) + "s";  // 依字數調整速度
+  const tk = $("#newsTicker");
+  if(tk){ tk.title = "點我看完整更新內容"; tk.onclick = openUpdates; }
 }
 initNews();
+
+/* ---------- 更新內容頁（不規則磚牆排版） ---------- */
+const UPDATES = [
+  {icon:"🌈", title:"世界冠軍慶祝", color:"#a855f7", feat:true,
+   body:"奪下 F1 世界冠軍那季，賽季結算卡改用流動的彩虹漸層邊框與標題，替你的封王時刻慶祝。"},
+  {icon:"🛞", title:"賽中策略決策", color:"#e10600", feat:true,
+   body:"進站選軟／中／硬胎、天氣突變賭半雨／全雨胎、Push／Save 模式切換 —— 效果跨越多圈，真正左右整場戰局。"},
+  {icon:"🤝", title:"代言依名氣解鎖", color:"#48cae4",
+   body:"新秀只有地方贊助商；打響名號後才解鎖品牌代言，成名巨星才有國際大品牌上門。"},
+  {icon:"📝", title:"續約看成績", color:"#ff8000",
+   body:"開強隊卻打得差，車隊不再給你續約；你得往下找符合身價的車隊。"},
+  {icon:"🧳", title:"換隊忠誠度", color:"#ffd54a",
+   body:"在同一車隊待滿兩年後主動跳槽，會被外界議論、聲望下降。"},
+  {icon:"💵", title:"薪資身價平衡", color:"#4ade80",
+   body:"車隊薪資、代言金全面下修，生涯總身價回到合理範圍，不再誇張破表。"},
+  {icon:"🎯", title:"最匹配真實車手", color:"#00a3e0", feat:true,
+   body:"退休時比對你的生涯數據，找出與你最相似的真實 F1 車手並給出匹配度。"},
+  {icon:"💰", title:"資產與投資", color:"#ffd54a",
+   body:"用薪資投資訓練營、模擬器、心理師、雨戰、公關來提升能力，但每次都有失敗風險。"},
+  {icon:"🤝", title:"動態代言事件", color:"#e10600",
+   body:"合約期間可能遇上贊助商爆醜聞、品牌活動、績效獎金、廣告爆紅、財務危機等抉擇。"},
+  {icon:"⚠️", title:"突發傷病", color:"#ff3b30",
+   body:"生涯隨機發生感冒、摔傷、食物中毒、低潮，會降低評分甚至讓你缺賽（DNS）。"},
+  {icon:"🏎️", title:"真實車手陣容", color:"#3671c6",
+   body:"F1 對手採 2026 車隊真實車手與實力值，強手就算車不快也很難纏。"},
+  {icon:"🌍", title:"全球遊玩次數", color:"#48cae4",
+   body:"開始畫面顯示全世界玩家累計開始的生涯次數。"},
+];
+function openUpdates(){
+  const box = $("#updatesList");
+  if(box) box.innerHTML = UPDATES.map((u,i)=>
+    `<div class="update-card ${u.feat?'feat':''}" style="--ac:${u.color};animation-delay:${(i*0.03).toFixed(2)}s">`+
+    `<div class="uc-ic">${u.icon}</div><div class="uc-title">${u.title}</div><div class="uc-body">${u.body}</div></div>`
+  ).join("");
+  $("#updatesScreen").classList.add("show");
+  const inner = document.querySelector("#updatesScreen .sinner"); if(inner) inner.scrollTop = 0;
+}
+{ const bk = $("#updatesBack"); if(bk) bk.onclick = ()=> $("#updatesScreen").classList.remove("show"); }
 
 /* ---------- 綁定 ---------- */
 $("#mainBtn").onclick = ()=>nextRace();

@@ -68,6 +68,24 @@
   .tag.win{background:var(--gold);color:#15151e}.tag.pod{background:#cd7f32;color:#fff}
   .tag.pts{background:var(--green);color:#0d0d13}.tag.dnf{background:var(--red);color:#fff}.tag.info{background:var(--blue);color:#0d0d13}
   .card.season{border:1px solid rgba(255,213,74,.35);background:linear-gradient(180deg,#26261f,#1b1b17)}
+  /* 世界冠軍：流動彩虹漸層邊框 */
+  .card.champ-glow{
+    border:2px solid transparent;
+    background:
+      linear-gradient(180deg,#242419,#191914) padding-box,
+      linear-gradient(90deg,#ff2a20,#ffd54a,#4ade80,#48cae4,#a855f7,#ff2a20) border-box;
+    background-size:auto, 300% 100%;
+    box-shadow:0 0 28px rgba(255,213,74,.3);
+    animation:champFlow 3.2s linear infinite, in .28s ease;
+  }
+  .card.champ-glow::before{display:none}
+  .card.champ-glow .ch{
+    background:linear-gradient(90deg,#ff2a20,#ffd54a,#4ade80,#48cae4,#a855f7,#ff2a20);
+    background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+    animation:champText 3.2s linear infinite;font-weight:900;
+  }
+  @keyframes champFlow{from{background-position:0 0,0% 0}to{background-position:0 0,300% 0}}
+  @keyframes champText{from{background-position:0% 0}to{background-position:300% 0}}
   .card.season .ch{color:var(--gold)}
   .mini-tbl{width:100%;font-size:12px;border-collapse:collapse;margin-top:7px}
   .mini-tbl td{padding:2px 4px;border-bottom:1px solid rgba(255,255,255,.05)}
@@ -164,8 +182,33 @@
   .news-content{position:absolute;top:0;left:0;height:100%;display:inline-flex;align-items:center;white-space:nowrap;
     font-size:12.5px;color:#e6e6ea;will-change:transform;animation:newsScroll 30s linear infinite}
   .news-content b{color:var(--gold);font-weight:800}
+  .news-ticker{cursor:pointer;transition:border-color .15s}
+  .news-ticker:hover{border-color:var(--red)}
   .news-ticker:hover .news-content{animation-play-state:paused}
   @keyframes newsScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* ===== 更新內容頁：不規則磚牆排版 ===== */
+  #updatesScreen .sinner{max-width:640px}
+  .updates-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .updates-head .slogo{margin-bottom:0;flex:1;min-width:0}
+  .up-back{flex:0 0 auto;background:linear-gradient(180deg,#2c2c35,#20202a);color:var(--white);
+    border:1px solid var(--lgrey);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:800;
+    cursor:pointer;transition:.15s;font-family:inherit;white-space:nowrap}
+  .up-back:hover{background:var(--red);border-color:var(--red);transform:translateY(-1px)}
+  .updates-masonry{columns:2;column-gap:12px;margin:6px 0 20px}
+  @media(max-width:420px){.updates-masonry{columns:1}}
+  .update-card{break-inside:avoid;display:inline-block;width:100%;margin:0 0 12px;padding:13px 15px;border-radius:12px;
+    background:linear-gradient(180deg,#22222d,#1a1a23);border:1px solid rgba(255,255,255,.07);
+    border-top:3px solid var(--ac,#e10600);box-shadow:0 4px 14px rgba(0,0,0,.32);animation:in .3s ease both;position:relative;overflow:hidden}
+  .update-card::after{content:"";position:absolute;top:-30px;right:-30px;width:80px;height:80px;border-radius:50%;
+    background:radial-gradient(circle,var(--ac,#e10600),transparent 70%);opacity:.14}
+  .update-card .uc-ic{font-size:26px;line-height:1;margin-bottom:7px}
+  .update-card .uc-title{font-size:15px;font-weight:800;color:#fff;margin-bottom:5px;letter-spacing:.3px}
+  .update-card .uc-body{font-size:12.5px;line-height:1.6;color:#cfcfcf}
+  .update-card.feat{border-top-width:4px}
+  .update-card.feat .uc-ic{font-size:34px}
+  .update-card.feat .uc-title{font-size:18px;color:var(--ac,#e10600)}
+  .update-card.feat .uc-body{font-size:13.5px}
   .play-count{text-align:center;margin-top:16px;font-size:12px;color:var(--lgrey);font-family:var(--num);letter-spacing:.5px;min-height:16px}
   .field{margin-bottom:16px}
   .field>label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--lgrey);margin-bottom:7px;font-weight:700}
