@@ -44,9 +44,13 @@ const TRACKS = ["巴林","吉達","墨爾本","上海","邁阿密","蒙地卡羅
 // DNF 退賽原因（機械故障 / 意外）
 const DNF_REASONS = ["引擎故障","變速箱故障","液壓系統失效","煞車失靈","懸吊斷裂","電力系統故障","動力單元報銷","賽車起火","爆胎","打滑撞牆","賽車散架","漏油"];
 const COUNTRIES = [
-  ["🇹🇼","臺灣"],["🇬🇧","英國"],["🇳🇱","荷蘭"],["🇪🇸","西班牙"],["🇲🇨","摩納哥"],["🇮🇹","義大利"],
-  ["🇫🇷","法國"],["🇩🇪","德國"],["🇧🇷","巴西"],["🇦🇺","澳洲"],["🇯🇵","日本"],["🇺🇸","美國"],
-  ["🇫🇮","芬蘭"],["🇨🇦","加拿大"],["🇲🇽","墨西哥"],["🇦🇷","阿根廷"],["🇹🇭","泰國"],["🇩🇰","丹麥"],
+  ["🇹🇼","臺灣"],["🇭🇰","香港"],["🇲🇴","澳門"],["🇨🇳","中國"],["🇯🇵","日本"],["🇰🇷","南韓"],
+  ["🇲🇾","馬來西亞"],["🇸🇬","新加坡"],["🇹🇭","泰國"],["🇮🇩","印尼"],["🇵🇭","菲律賓"],["🇻🇳","越南"],
+  ["🇮🇳","印度"],["🇬🇧","英國"],["🇳🇱","荷蘭"],["🇪🇸","西班牙"],["🇲🇨","摩納哥"],["🇮🇹","義大利"],
+  ["🇫🇷","法國"],["🇩🇪","德國"],["🇧🇪","比利時"],["🇨🇭","瑞士"],["🇦🇹","奧地利"],["🇫🇮","芬蘭"],
+  ["🇸🇪","瑞典"],["🇩🇰","丹麥"],["🇵🇱","波蘭"],["🇵🇹","葡萄牙"],["🇮🇪","愛爾蘭"],["🇧🇷","巴西"],
+  ["🇦🇷","阿根廷"],["🇲🇽","墨西哥"],["🇺🇸","美國"],["🇨🇦","加拿大"],["🇦🇺","澳洲"],["🇳🇿","紐西蘭"],
+  ["🇿🇦","南非"],["🇦🇪","阿聯"],["🇸🇦","沙烏地"],
 ];
 // 青訓級別對手：真實賽車手姓氏（含現役 F2/F3 新秀與經典名將）
 const AI_NAMES = ["Maini","Martins","Vesti","Hauger","Iwasa","Barnard","Crawford","Fornaroli","Aron","Villeneuve",
@@ -96,7 +100,7 @@ function newGame(name, number, country, mode, talent){
     totals: {races:0, wins:0, podiums:0, poles:0, points:0, dnfs:0,
              titles:{KART:0,F4:0,F3:0,F2:0,F1:0}, wdc:0, bestWDC:99, seasons:0,
              firstWinAge:null, firstTitleAge:null, underdogWin:false},
-    teamHistory:{}, startMode:mode,
+    teamHistory:{}, startMode:mode, badStreak:0,
     timeline: [], over:false, lastResult:null,
   };
   ATTRS.forEach(a=>{ G.attrs[a.key] = clamp(baseAttr + rint(-6,6), 10, 60); });
@@ -443,6 +447,7 @@ function endSeason(){
     if(!G.teamHistory) G.teamHistory={};
     G.teamHistory[G.teamKey] = (G.teamHistory[G.teamKey]||0)+1;   // 成就追蹤：效力各隊季數
     if(champ && tot.firstTitleAge==null) tot.firstTitleAge = G.age;
+    G.badStreak = (myPos>=17) ? (G.badStreak||0)+1 : 0;           // 連續低迷（車手榜 17 名以後）追蹤
   }
   if(champ) tot.titles[G.tier]++;
   // 薪水
@@ -507,8 +512,23 @@ function decideNextSeat(myPos, champ){
       G.tier=G.tier; startSeason(); beginNextSeasonReady();
     }
   } else {
-    // F1：季末合約選擇
+    // F1：連續三季低迷（17 名後）→ 大機率被車隊釋出（降級 / 被炒）
+    if((G.badStreak||0) >= 3 && rand() < 0.8){ dropFromF1(); return; }
+    // 否則季末合約選擇
     offerF1Seats(false);
+  }
+}
+// 連續低迷被 F1 釋出：還年輕就降回 F2 重新證明，太老則直接被淘汰退役
+function dropFromF1(){
+  G.badStreak = 0;
+  if(G.age < 34){
+    addCard(`<div class="ct"><span class="newsflag">⬇️</span> 遭車隊釋出</div><div class="ch">被降回 F2</div>`+
+            `<div class="cb">連續三季成績低迷（車手榜 17 名之後），車隊對你失去信心，你失去了 F1 席位，只能回到 F2 重新證明自己。</div>`,"season");
+    G.tier="F2"; G.teamKey=null; G.seasonsInTier=0; startSeason(); beginNextSeasonReady();
+  } else {
+    addCard(`<div class="ct"><span class="newsflag">🚫</span> 黯然退場</div><div class="ch">${G.age} 歲 · 被車壇淘汰</div>`+
+            `<div class="cb">連續三季低迷又上了年紀，再沒有車隊願意給你機會，職業生涯就此畫下句點。</div>`,"season");
+    retire();
   }
 }
 function promoteTo(tier){ G.tier=tier; G.seasonsInTier=0; startSeason(); }
