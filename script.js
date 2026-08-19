@@ -565,7 +565,7 @@ function endSeason(){
   G.timeline.push({
     yr:`S${G.season}·${t.short}`,
     text:`${teamName}｜WDC 第 ${myPos} · ${ss.wins}勝 ${ss.podiums}台 ${ss.points}分`,
-    medal: tlMedal, champ
+    medal: tlMedal, champ, pos: myPos, tier: G.tier, season: G.season
   });
 
   // 決定去向：升級 / 換隊 / 退休
@@ -788,7 +788,7 @@ function offerF1Seats(firstTime){
       + (curDropped ? `⚠️ ${cur.name} 對你本季表現不滿意，未提供續約。` : "")
       + (freePick ? "你已是搶手車手，可自由挑選夠格範圍內的任一車隊："
                   : (curDropped ? "你得另尋車隊。" : "你可以續約留任，或接受其他車隊的邀約："));
-  const choices = uniq.map(o=>{
+  const teamChoices = uniq.map(o=>{
     const tm = o.tm, badge = o.stay ? "🔁 續約留任 · " : "";
     return {
       label:`${badge}${tm.name} <small>賽車性能 ${tm.perf} · 年薪 ${tm.salary}M</small>`,
@@ -814,13 +814,24 @@ function offerF1Seats(firstTime){
     };
   });
   // 35 歲後可主動退役掛盔
-  if(!firstTime && G.age >= 35){
-    choices.push({ label:`🏁 光榮退役 <small>結束車手生涯，查看生涯總結</small>`, risky:false,
-      fn:()=>{ addCard(`<div class="ct"><span class="newsflag">🏁</span> 退役</div><div class="ch">${G.age} 歲 · 光榮掛盔</div>`+
-                       `<div class="cb">你決定為職業生涯畫下句點。</div>`,"season");
-               retire(); } });
+  const retireChoice = (!firstTime && G.age >= 35) ? {
+    label:`🏁 光榮退役 <small>結束車手生涯，查看生涯總結</small>`, risky:false,
+    fn:()=>{ addCard(`<div class="ct"><span class="newsflag">🏁</span> 退役</div><div class="ch">${G.age} 歲 · 光榮掛盔</div>`+
+                     `<div class="cb">你決定為職業生涯畫下句點。</div>`,"season");
+             retire(); }
+  } : null;
+  // 版面：前 3 支車隊 →（35 歲才有的）退役 → 展開其餘車隊
+  let choices, collapseAfter = null;
+  if(teamChoices.length > 3){
+    choices = teamChoices.slice(0, 3);
+    if(retireChoice) choices.push(retireChoice);
+    collapseAfter = choices.length;                     // 前 3 隊（+退役）直接顯示
+    choices = choices.concat(teamChoices.slice(3));     // 其餘收在「展開」鈕後
+  } else {
+    choices = teamChoices.slice();
+    if(retireChoice) choices.push(retireChoice);
   }
-  showModal(title, desc, choices, "合約");
+  showModal(title, desc, choices, "合約", collapseAfter!=null ? {collapseAfter} : null);
 }
 
 /* ---------- 退休 ---------- */
@@ -856,6 +867,8 @@ function retire(){
   // 全部成就放進可捲動小框（已解鎖在前，其餘往下捲）
   $("#achGrid").innerHTML = got.concat(locked).map(achCard).join("");
 
+  renderCareerChart();
+
   $("#timeline").innerHTML = G.timeline.map(r=>
     `<div class="tl-row"><span class="tl-yr">${r.yr}</span><span class="tl-tx ${r.champ?'tl-medal':''}">${r.medal?r.medal+" ":""}${r.text}</span></div>`
   ).join("");
@@ -878,6 +891,32 @@ function retire(){
     `<div class="mb-info"><div class="mb-name">🏎️ ${m.d.name}</div><div class="mb-tag">${m.d.tag} · 與你的生涯最相似</div></div>`;
 
   $("#retireScreen").classList.add("show");
+}
+
+/* ---------- 生涯排名走勢折線圖（SVG） ---------- */
+function renderCareerChart(){
+  const el = $("#careerChart"); if(!el) return;
+  const data = (G.timeline||[]).filter(r=>typeof r.pos==="number");
+  if(!data.length){ el.innerHTML = `<div class="muted" style="text-align:center;padding:14px">尚無完整賽季資料</div>`; return; }
+  const positions = data.map(r=>r.pos);
+  const yMax = Math.max(5, Math.max(...positions));   // 至少畫到 P5
+  const n = data.length;
+  const W=600, H=190, padL=30, padR=14, padT=12, padB=24;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const X = i => padL + (n===1 ? plotW/2 : plotW*i/(n-1));
+  const Y = pos => padT + plotH*(clamp(pos,1,yMax)-1)/(yMax-1);   // P1 在最上方
+  const ticks = yMax<=6 ? [1,3,5] : yMax<=12 ? [1,5,10] : [1,5,10,yMax];
+  const grid = ticks.map(p=>{ const y=Y(p).toFixed(1);
+    return `<line class="cc-grid" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}"/>`+
+           `<text class="cc-lbl" x="${padL-6}" y="${(+y+3).toFixed(1)}" text-anchor="end">P${p}</text>`; }).join("");
+  const linePts = data.map((r,i)=>`${X(i).toFixed(1)},${Y(r.pos).toFixed(1)}`).join(" ");
+  const dots = data.map((r,i)=>{ const champ=r.champ||r.pos===1;
+    return `<circle class="${champ?'cc-champ':'cc-dot'}" cx="${X(i).toFixed(1)}" cy="${Y(r.pos).toFixed(1)}" r="${champ?4.5:3}"/>`; }).join("");
+  const step = Math.max(1, Math.ceil(n/9));
+  const xlbl = data.map((r,i)=> (i%step===0 || i===n-1)
+    ? `<text class="cc-lbl" x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="middle">S${r.season||i+1}</text>` : "").join("");
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`+
+    grid + `<polyline class="cc-line" points="${linePts}"/>` + dots + xlbl + `</svg>`;
 }
 
 /* ---------- 生涯最匹配的真實車手 ---------- */
@@ -1197,19 +1236,37 @@ function setMainBtn(text, fn){
 function hintSeasonEnd(){ setMainBtn("🏁 結算賽季", ()=>endSeason()); $("#ffBtn").disabled=true; }
 
 /* ---------- Modal ---------- */
-function showModal(title, desc, choices, tag){
+function showModal(title, desc, choices, tag, opts){
   $("#mTag").textContent = tag||"事件";
   $("#mTitle").textContent = title;
   $("#mDesc").textContent = desc;
   const box=$("#mChoices"); box.innerHTML="";
-  choices.forEach(c=>{
+  const mkBtn = c=>{
     const b=document.createElement("button");
     b.className="choice"+(c.risky?" risky":"");
     b.innerHTML=c.label;
     b.onclick=()=>{ $("#overlay").classList.remove("show"); c.fn && c.fn();
                     $("#feed").scrollTop=$("#feed").scrollHeight; };
-    box.appendChild(b);
-  });
+    return b;
+  };
+  const ca = opts && opts.collapseAfter;
+  if(ca != null && choices.length > ca){
+    choices.slice(0, ca).forEach(c=> box.appendChild(mkBtn(c)));   // 前 N 個直接顯示
+    const hidden = choices.slice(ca);
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "display:none;flex-direction:column;gap:9px";
+    hidden.forEach(c=> wrap.appendChild(mkBtn(c)));
+    const toggle = document.createElement("button");
+    toggle.className = "choice"; toggle.style.borderStyle = "dashed";
+    const lbl = `展開更多車隊（${hidden.length}）▾`;
+    toggle.innerHTML = lbl;
+    toggle.onclick = ()=>{ const open = wrap.style.display!=="none";
+      wrap.style.display = open ? "none" : "flex"; toggle.innerHTML = open ? lbl : "收合 ▴"; };
+    box.appendChild(toggle);
+    box.appendChild(wrap);
+  } else {
+    choices.forEach(c=> box.appendChild(mkBtn(c)));
+  }
   $("#overlay").classList.add("show");
 }
 
@@ -1289,7 +1346,7 @@ function bumpPlayCount(){
 }
 
 /* ---------- 首頁跑馬燈新聞條 ---------- */
-const NEWS_TEXT = "🏁 最新更新！⚔️ 隊友對決：跟同隊明星車手逐場較勁，直播即時顯示領先/落後，壓制隊友加聲望還能保住席位；🏆 名氣夠就能自由挑選整個範圍的車隊，不再被塞兩三支；📊 車隊行情看實戰成績為主，新秀要跑出成績才上頂隊（不會第二季就紅牛）；🤝 先選車隊才簽代言、大品牌需成名＋贏過比賽；🌈 奪世界冠軍流動彩色慶祝；🛞 賽中策略決策：進站選胎、天氣賭雨胎、Push／Save；🎯 退休顯示與你最相似的真實車手；💰 資產投資、⚠️ 突發傷病、🌍 全球遊玩次數。快展開屬於你的傳奇 🏆";
+const NEWS_TEXT = "🏁 最新更新！📈 退休新增生涯排名走勢折線圖，看盡每季名次起伏；📋 季末合約先列前三隊＋退役鈕、其餘一鍵展開；⚔️ 隊友對決：跟同隊明星車手逐場較勁，直播即時顯示領先/落後，壓制隊友加聲望還能保住席位；🏆 名氣夠就能自由挑選整個範圍的車隊，不再被塞兩三支；📊 車隊行情看實戰成績為主，新秀要跑出成績才上頂隊（不會第二季就紅牛）；🤝 先選車隊才簽代言、大品牌需成名＋贏過比賽；🌈 奪世界冠軍流動彩色慶祝；🛞 賽中策略決策：進站選胎、天氣賭雨胎、Push／Save；🎯 退休顯示與你最相似的真實車手；💰 資產投資、⚠️ 突發傷病、🌍 全球遊玩次數。快展開屬於你的傳奇 🏆";
 function initNews(){
   const el = $("#newsContent"); if(!el) return;
   const sep = "　　🏁　　";
@@ -1302,36 +1359,40 @@ initNews();
 
 /* ---------- 更新內容頁（不規則磚牆排版） ---------- */
 const UPDATES = [
+  {icon:"📈", title:"生涯排名走勢", color:"#4ade80", feat:true,
+   body:"退休畫面新增生涯排名走勢折線圖，用一條紅線畫出你每個賽季的車手榜名次，金色圓點標示奪冠賽季，一眼看盡整段生涯的起伏。"},
+  {icon:"📋", title:"合約新版面", color:"#ff8000",
+   body:"季末合約改版：先列出市場價值最高的前三支車隊，接著是退役按鈕，其餘車隊收進展開鈕，選車隊時畫面更清爽好讀。"},
   {icon:"⚔️", title:"隊友對決", color:"#48cae4", feat:true,
-   body:"跟同隊的明星車手開同一台車逐場較勁！直播即時顯示你對隊友的領先/落後，賽季結算比戰績；壓制隊友能加聲望、還能保住席位，生涯壓制隊友可解鎖成就。"},
+   body:"跟同隊的明星車手開同一台車逐場較勁，直播即時顯示你對隊友的領先或落後；賽季比拚戰績，壓制隊友能加聲望、保住席位。"},
   {icon:"🏆", title:"自由選車隊", color:"#ffd54a", feat:true,
-   body:"名氣達標後，季末合約會列出你夠格範圍內的所有車隊，由你自由挑選，不再只有那兩三支。"},
+   body:"名氣累積到一定程度後，季末合約不再只給你兩三支，而是列出你夠格範圍內的所有車隊，讓你自由挑選要加盟哪一支。"},
   {icon:"📊", title:"真實車隊行情", color:"#3671c6",
-   body:"車隊邀約以實戰成績（聲望）為主，天賦高的新秀也得跑出成績才能上頂級隊，不會第二季就被頂隊挖角。"},
+   body:"車隊邀約以實戰成績與聲望為主，天賦再高的新秀也得跑出成績、累積名氣才能上頂級隊，不會第二季就被強隊挖角。"},
   {icon:"🌈", title:"世界冠軍慶祝", color:"#a855f7", feat:true,
-   body:"奪下 F1 世界冠軍那季，賽季結算卡改用流動的彩虹漸層邊框與標題，替你的封王時刻慶祝。"},
+   body:"奪下 F1 世界冠軍的那個賽季，賽季結算卡會亮起流動的彩虹漸層邊框與標題，用最華麗的方式替你的封王時刻喝采。"},
   {icon:"🛞", title:"賽中策略決策", color:"#e10600", feat:true,
-   body:"進站選軟／中／硬胎、天氣突變賭半雨／全雨胎、Push／Save 模式切換 —— 效果跨越多圈，真正左右整場戰局。"},
+   body:"比賽中會遇到進站選軟中硬胎、天氣突變賭雨胎、Push 進攻或 Save 省胎等抉擇，每個選擇都跨越多圈影響戰局。"},
   {icon:"🤝", title:"代言依名氣解鎖", color:"#48cae4",
-   body:"新秀只有地方贊助商；打響名號後才解鎖品牌代言，成名巨星才有國際大品牌上門。"},
+   body:"代言依名氣分級解鎖：新秀只有地方贊助商，打響名號才有品牌代言，成為贏過比賽的知名車手，國際大品牌才會找你。"},
   {icon:"📝", title:"續約看成績", color:"#ff8000",
-   body:"開強隊卻打得差，車隊不再給你續約；你得往下找符合身價的車隊。"},
+   body:"開著強隊卻交不出對得起這台車的成績，車隊就不再與你續約，你得往下找符合身價的隊伍，保住頂級席位得靠真本事。"},
   {icon:"🧳", title:"換隊忠誠度", color:"#ffd54a",
-   body:"在同一車隊待滿兩年後主動跳槽，會被外界議論、聲望下降。"},
+   body:"在同一支車隊效力滿兩年後又主動跳槽，會被外界議論見異思遷、導致聲望下降，忠誠與野心之間的取捨全看你怎麼選。"},
   {icon:"💵", title:"薪資身價平衡", color:"#4ade80",
-   body:"車隊薪資、代言金全面下修，生涯總身價回到合理範圍，不再誇張破表。"},
+   body:"車隊薪資與代言金全面重新調整，讓長生涯累積的總身價回到合理範圍、不再誇張破表，想致富仍得靠長期經營累積。"},
   {icon:"🎯", title:"最匹配真實車手", color:"#00a3e0", feat:true,
-   body:"退休時比對你的生涯數據，找出與你最相似的真實 F1 車手並給出匹配度。"},
+   body:"退休時會用你的冠軍、勝場、登台、桿位與資歷等數據，比對十多位真實 F1 名將，找出與你最相似的一位並給匹配度。"},
   {icon:"💰", title:"資產與投資", color:"#ffd54a",
-   body:"用薪資投資訓練營、模擬器、心理師、雨戰、公關來提升能力，但每次都有失敗風險。"},
+   body:"用資產投資訓練營、模擬器、心理師、雨戰或公關來提升能力，但每項投資都有失敗風險，可能白花錢甚至倒扣能力聲望。"},
   {icon:"🤝", title:"動態代言事件", color:"#e10600",
-   body:"合約期間可能遇上贊助商爆醜聞、品牌活動、績效獎金、廣告爆紅、財務危機等抉擇。"},
+   body:"代言期間會發生各種突發狀況：贊助商爆醜聞、邀你出席活動、發放獎金、廣告爆紅或陷入財務危機，每件都要你抉擇。"},
   {icon:"⚠️", title:"突發傷病", color:"#ff3b30",
-   body:"生涯隨機發生感冒、摔傷、食物中毒、低潮，會降低評分甚至讓你缺賽（DNS）。"},
+   body:"生涯中會隨機遇上重感冒、訓練摔傷、食物中毒或莫名低潮等突發狀況，可能降低你的能力，嚴重時甚至得缺席休養。"},
   {icon:"🏎️", title:"真實車手陣容", color:"#3671c6",
-   body:"F1 對手採 2026 車隊真實車手與實力值，強手就算車不快也很難纏。"},
+   body:"F1 對手採用 2026 賽季各車隊的真實車手與實力設定，像 Verstappen、Hamilton 等強手，車不夠快也依然難纏。"},
   {icon:"🌍", title:"全球遊玩次數", color:"#48cae4",
-   body:"開始畫面顯示全世界玩家累計開始的生涯次數。"},
+   body:"開始畫面底部即時顯示全世界玩家累計開始生涯的總次數，每有人展開一段新的車手人生就加一，看見自己也在其中。"},
 ];
 function openUpdates(){
   const box = $("#updatesList");
