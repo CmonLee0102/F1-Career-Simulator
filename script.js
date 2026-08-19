@@ -92,7 +92,7 @@ function newGame(name, number, country, mode, talent){
   const baseAttr  = mode === "f1" ? 46 : 34;
   G = {
     name, number, country, potential: talent,
-    age: startAge, peakAge: rint(27,30), retireAge: rint(35,40),
+    age: startAge, peakAge: rint(27,30), retireAge: rint(37,45),
     tier: startTier, teamKey: null, seasonsInTier: 0,
     attrs: {}, rep: mode==="f1" ? 22 : 10, money: 0,
     season: 1, round: 0,
@@ -100,7 +100,7 @@ function newGame(name, number, country, mode, talent){
     totals: {races:0, wins:0, podiums:0, poles:0, points:0, dnfs:0,
              titles:{KART:0,F4:0,F3:0,F2:0,F1:0}, wdc:0, bestWDC:99, seasons:0,
              firstWinAge:null, firstTitleAge:null, underdogWin:false},
-    teamHistory:{}, startMode:mode, badStreak:0,
+    teamHistory:{}, startMode:mode, badStreak:0, missNext:0, missReason:"", sponsor:null,
     timeline: [], over:false, lastResult:null,
   };
   ATTRS.forEach(a=>{ G.attrs[a.key] = clamp(baseAttr + rint(-6,6), 10, 60); });
@@ -203,16 +203,17 @@ function advanceLap(st){
 }
 
 /* ---------- 結算一場比賽：更新積分/聲望/成長，回傳結果 ---------- */
-function resolveFinish(st){
+function resolveFinish(st, opts){
+  const dns = !!(opts && opts.dns);                              // 缺賽（傷病）：玩家不計分，也不算 DNF 統計
   const me = st.me;
-  const myPos = me.dnf ? "DNF" : me.pos;
+  const myPos = dns ? "DNS" : (me.dnf ? "DNF" : me.pos);
   const finishers = [...st.cars].filter(c=>!c.dnf).sort((a,b)=> b.cum - a.cum);
   finishers.forEach((c,i)=>{ if(i<10) c.e.pts += POINTS[i]; if(i===0) c.e.wins++; });
-  st.cars.forEach(c=>{ if(c.dnf) c.e.dnf++; });
+  st.cars.forEach(c=>{ if(c.dnf && !c.e.isMe) c.e.dnf++; });
   const ss = G.seasonStat, tot = G.totals;
   G.round++; tot.races++;
   let gained = 0;   // 本站獲得積分
-  if(me.dnf){ ss.dnfs++; tot.dnfs++; }
+  if(me.dnf){ if(!dns){ ss.dnfs++; tot.dnfs++; } }
   else {
     const p = me.pos;
     ss.best = Math.min(ss.best, p);
@@ -224,11 +225,11 @@ function resolveFinish(st){
       if((teamByKey(G.teamKey)?.perf || 60) < 58) tot.underdogWin = true;
     }
   }
-  if(st.pole){ ss.poles++; tot.poles++; }
-  repFromResult(me.dnf ? 99 : me.pos);
-  raceGrowth();
-  G.lastResult = {pos:myPos, dnf:me.dnf, track:st.track, wet:st.wet, pole:st.pole, tierShort:st.t.short, pts:gained,
-                  reason: me.dnf ? (me.dnfReason || pick(DNF_REASONS)) : null};
+  if(st.pole && !dns){ ss.poles++; tot.poles++; }
+  repFromResult(dns ? 99 : (me.dnf ? 99 : me.pos));
+  if(!dns) raceGrowth();
+  G.lastResult = {pos:myPos, dnf:me.dnf, dns:dns, track:st.track, wet:st.wet, pole:st.pole && !dns, tierShort:st.t.short, pts:gained,
+                  reason: dns ? (opts.reason||"傷病") : (me.dnf ? (me.dnfReason || pick(DNF_REASONS)) : null)};
   return G.lastResult;
 }
 
@@ -271,13 +272,14 @@ function seasonAging(){
 /*  主流程                                                   */
 /* ========================================================= */
 let busy=false, raceSt=null;
-function setButtonsDisabled(b){ $("#mainBtn").disabled=b; $("#ffBtn").disabled=b; }
+function setButtonsDisabled(b){ $("#mainBtn").disabled=b; $("#ffBtn").disabled=b; const i=$("#investBtn"); if(i) i.disabled=b; }
 
 function nextRace(){
   if(G.over || busy) return;
   const t = TIERS[G.tier];
   if(G.round >= t.races){ endSeason(); return; }
   newSeasonScreen();          // 新賽季第一場 → 先清空主畫面
+  if(G.missNext > 0){ playMissedRace(); return; }   // 傷病缺賽
   startLiveRace();
 }
 function fastForwardSeason(){
@@ -286,7 +288,9 @@ function fastForwardSeason(){
   if(G.round >= t.races){ endSeason(); return; }   // 已跑完就直接結算，不重複輸出
   busy=true; setButtonsDisabled(true);
   newSeasonScreen();          // 新賽季 → 先清空主畫面
-  while(G.round < t.races){ simRaceInstant(); }
+  while(G.round < t.races){
+    if(G.missNext > 0){ G.missNext--; simMissedInstant(); } else simRaceInstant();
+  }
   addCard(`<div class="ct">⏩ 快速模擬</div><div class="cb">本季剩餘分站已快速跑完（決策賽自動穩健處理）。</div>`,"");
   updateHeader(); save(); endSeason();
 }
@@ -325,8 +329,28 @@ function finishRacePost(){
   setButtonsDisabled(false);
   busy=false;
   const t = TIERS[G.tier];
-  if(G.round >= t.races){ hintSeasonEnd(); }
-  else if(rand() < 0.22){ maybeEvent(); }   // 賽間事件（與賽中決策不同）
+  if(G.round >= t.races){ hintSeasonEnd(); return; }
+  const roll = rand();
+  if(roll < 0.07){ misfortune(); }          // 突發狀況 / 傷病
+  else if(roll < 0.27){ maybeEvent(); }     // 一般賽間事件（與賽中決策不同）
+}
+// 因傷病缺賽（現場版）：AI 照跑計分，玩家不計分並記為 DNS
+function playMissedRace(){
+  busy=true; setButtonsDisabled(true);
+  const reason = G.missReason || "傷病";
+  G.missNext = Math.max(0, (G.missNext||0) - 1);
+  const st = buildRace(); st.me.dnf = true; st.me.cum = -1e9;
+  while(st.lap < st.laps){ advanceLap(st); }
+  const r = resolveFinish(st, {dns:true, reason});
+  renderResultCard(r);
+  addCard(`<div class="ct"><span class="newsflag">🏥</span> 缺賽</div><div class="cb">你因「${reason}」缺席 ${st.track} 大獎賽。</div>`,"");
+  updateHeader(); save();
+  finishRacePost();
+}
+function simMissedInstant(){
+  const st = buildRace(); st.me.dnf = true; st.me.cum = -1e9;
+  while(st.lap < st.laps){ advanceLap(st); }
+  resolveFinish(st, {dns:true, reason:G.missReason||"傷病"});
 }
 function simRaceInstant(){
   const st = buildRace();
@@ -479,6 +503,7 @@ function endSeason(){
 }
 
 function shouldRetire(myPos){
+  if(G.age >= 45) return true;                                  // 硬性上限：45 歲一定退役
   if(G.age >= G.retireAge) return true;
   if(G.age >= 33 && G.tier==="F1" && G.rep < 12) return true;   // 老將失去舞台
   return false;
@@ -512,11 +537,52 @@ function decideNextSeat(myPos, champ){
       G.tier=G.tier; startSeason(); beginNextSeasonReady();
     }
   } else {
-    // F1：連續三季低迷（17 名後）→ 大機率被車隊釋出（降級 / 被炒）
-    if((G.badStreak||0) >= 3 && rand() < 0.8){ dropFromF1(); return; }
-    // 否則季末合約選擇
-    offerF1Seats(false);
+    // F1 季末：先處理代言（有合約就領款、到期才簽新），再處理釋出 / 合約
+    seasonEndorsement(()=>{
+      if((G.badStreak||0) >= 3 && rand() < 0.8){ dropFromF1(); return; }  // 連續三季低迷 → 大機率被釋出
+      offerF1Seats(false);
+    });
   }
+}
+// 季末代言結算：合約在期間內每季自動領款；到期（或沒合約）才提供新的代言選擇
+function seasonEndorsement(next){
+  const s = G.sponsor;
+  if(s && s.seasonsLeft > 0){
+    G.money = (G.money||0) + s.pay;
+    s.seasonsLeft--;
+    const expired = s.seasonsLeft <= 0;
+    addCard(`<div class="ct"><span class="newsflag">🤝</span> 代言收入 · ${s.name}</div>`+
+            `<div class="cb">合約入帳 +${s.pay}M。${expired ? "本合約已到期，明年可簽新約。" : `合約尚餘 ${s.seasonsLeft} 季。`}（資產 ${G.money}M）</div>`,"season");
+    if(expired) G.sponsor = null;
+    updateHeader(); save();
+    next(); return;
+  }
+  offerNewSponsor(next);
+}
+// 簽新代言：含期限，合約期間每季領款（大品牌報酬高但有形象風險）
+function offerNewSponsor(next){
+  const rep = G.rep, base = Math.round(6 + rep*0.4);
+  const deals = [
+    {name:"地方贊助商", pay:Math.max(3,Math.round(base*0.55)), years:2, risky:false},
+    {name:"品牌代言",   pay:base,                              years:3, risky:false},
+    {name:"國際大品牌", pay:Math.round(base*1.5),              years:3, risky:true },
+  ];
+  const choices = deals.map(d=>({
+    label:`${d.risky?"🌟":"🤝"} ${d.name} <small>約 ${d.pay}M/季 · 為期 ${d.years} 季${d.risky?" · 有形象風險":""}</small>`,
+    risky:d.risky,
+    fn:()=>{ let pay=d.pay, note="";
+      if(d.risky){
+        if(rand()<0.6){ G.rep=clamp(G.rep+3,0,100); note=" 開門紅，聲望 +3！"; }
+        else { pay=Math.round(pay*0.6); G.rep=clamp(G.rep-3,0,100); note=" 一簽約就捲入爭議，收入縮水、聲望 -3。"; }
+      }
+      G.sponsor = {name:d.name, pay:pay, seasonsLeft:d.years-1};   // 首期現在入帳，其餘各季自動領
+      G.money = (G.money||0) + pay; updateHeader(); save();
+      addCard(`<div class="ct"><span class="newsflag">🤝</span> 簽下代言 · ${d.name}</div>`+
+              `<div class="cb">為期 ${d.years} 季，每季約 ${pay}M；首期入帳 +${pay}M。${note}（資產 ${G.money}M）</div>`,"season");
+      next(); }
+  }));
+  choices.push({ label:"專注比賽，暫不接代言", fn:()=>{ next(); } });
+  showModal(`🤝 季末代言 — 聲望 ${Math.round(rep)}`, "簽下代言合約，可在合約期間每季獲得資金：", choices, "代言");
 }
 // 連續低迷被 F1 釋出：還年輕就降回 F2 重新證明，太老則直接被淘汰退役
 function dropFromF1(){
@@ -722,6 +788,88 @@ function maybeEvent(){
 }
 
 /* ========================================================= */
+/*  投資訓練：花資產提升能力，但有失敗風險                    */
+/* ========================================================= */
+const INVESTMENTS = [
+  {icon:"🏋️", name:"高強度訓練營", cost:14, chance:0.72,
+     ok:()=>{ bump("fit",rint(4,8)); return "魔鬼課表見效，體能大幅提升！"; },
+     bad:()=>{ bump("fit",-rint(1,3)); return "訓練過度拉傷，體能不升反降…"; }},
+  {icon:"🖥️", name:"私人模擬器", cost:18, chance:0.75,
+     ok:()=>{ const k=pick(["pace","craft"]); bump(k,rint(4,7)); return (k==="pace"?"單圈速度":"車技")+"顯著進步！"; },
+     bad:()=>{ return "設備水土不服，這筆錢幾乎打了水漂。"; }},
+  {icon:"🧠", name:"運動心理師", cost:12, chance:0.78,
+     ok:()=>{ bump("cons",rint(4,7)); return "心態更沉穩，失誤明顯變少！"; },
+     bad:()=>{ return "頻率對不上，沒什麼效果。"; }},
+  {icon:"🌧️", name:"雨天特訓", cost:12, chance:0.70,
+     ok:()=>{ bump("wet",rint(5,9)); return "雨戰能力大增，下雨就是你的舞台！"; },
+     bad:()=>{ bump("fit",-rint(1,2)); return "冒雨苦練反而感冒，狀態略降。"; }},
+  {icon:"📣", name:"頂級公關團隊", cost:20, chance:0.70,
+     ok:()=>{ G.rep=clamp(G.rep+rint(5,10),0,100); return "形象行銷成功，聲望大漲！"; },
+     bad:()=>{ G.rep=clamp(G.rep-rint(2,5),0,100); return "行銷翻車引發爭議，聲望受損！"; }},
+];
+function openInvest(){
+  if(G.over || busy || seasonClosing) return;
+  const money = G.money||0;
+  const opts = INVESTMENTS.map(inv=>{
+    const afford = money >= inv.cost;
+    return {
+      label:`${inv.icon} ${inv.name} <small>花費 ${inv.cost}M · 成功率 ${Math.round(inv.chance*100)}%${afford?"":" · 💸資金不足"}</small>`,
+      risky: afford && inv.chance <= 0.72,
+      fn: ()=>{ if(!afford){ addCard(`<div class="ct"><span class="newsflag">💰</span> 投資</div><div class="cb">資產不足，無法進行「${inv.name}」（需 ${inv.cost}M）。</div>`,""); return; } doInvest(inv); }
+    };
+  });
+  opts.push({ label:"暫不投資", fn:()=>{} });
+  showModal(`💰 投資訓練 — 資產 ${money}M`, "花錢投資自己來提升能力，但每次嘗試都有失敗風險（可能浪費資金，甚至倒扣能力或聲望）。", opts, "投資");
+}
+function doInvest(inv){
+  G.money = (G.money||0) - inv.cost;
+  const success = rand() < inv.chance;
+  const txt = success ? inv.ok() : inv.bad();
+  updateHeader(); save();
+  addCard(`<div class="ct"><span class="newsflag">💰</span> 投資 · ${inv.name}</div>`+
+          `<div class="ch">${success?"✅ 成功":"❌ 失敗"}</div>`+
+          `<div class="cb">${txt}（花費 ${inv.cost}M，剩餘資產 ${G.money}M）</div>`,"");
+}
+
+/* ========================================================= */
+/*  突發狀況 / 傷病：降低評分或缺賽                            */
+/* ========================================================= */
+const MISFORTUNES = [
+  {tag:"傷病", title:"重感冒來襲", desc:"賽前你發起高燒、全身無力。",
+   choices:[
+     {t:"退賽專心養病", s:"缺賽 1 場 · 保住身體", fn:()=>{ G.missNext=1; G.missReason="感冒發燒"; return "你決定退賽休養，下一站將缺席。"; }},
+     {t:"打針硬撐上場", s:"風險：狀態大跌", risky:true, fn:()=>{ if(rand()<0.5){ bump("fit",-rint(3,6)); return "你撐完全程，但體能嚴重透支。"; } bump("fit",-2); return "靠意志力完賽，影響不算大。"; }},
+   ]},
+  {tag:"意外", title:"訓練摔車受傷", desc:"一次自由車訓練，你摔傷了手腕。",
+   choices:[
+     {t:"開刀徹底休養", s:"缺賽 2 場", fn:()=>{ G.missNext=2; G.missReason="手腕骨折"; return "你需要缺席兩站養傷。"; }},
+     {t:"戴護具硬上", s:"風險：車技下降", risky:true, fn:()=>{ bump("craft",-rint(2,5)); return "傷勢影響了你的操控手感。"; }},
+   ]},
+  {tag:"突發", title:"食物中毒", desc:"賽前晚餐出了狀況，你上吐下瀉。",
+   choices:[
+     {t:"吊點滴休息", s:"-體能", fn:()=>{ bump("fit",-rint(2,4)); return "勉強恢復，但體能受到影響。"; }},
+     {t:"缺賽一場", s:"缺賽 1 場", fn:()=>{ G.missNext=1; G.missReason="腸胃炎"; return "身體撐不住，你缺席了這一站。"; }},
+   ]},
+  {tag:"狀態", title:"莫名低潮", desc:"最近你怎麼跑都不對勁，信心低落。",
+   choices:[
+     {t:"找教練調整", s:"-穩定 -聲望", fn:()=>{ bump("cons",-rint(1,3)); G.rep=clamp(G.rep-2,0,100); return "低潮暫時影響了你的穩定與聲望。"; }},
+   ]},
+  {tag:"傷病", title:"頸部舊傷復發", desc:"高 G 力讓你的頸部舊傷再度發作。",
+   choices:[
+     {t:"物理治療", s:"-體能", fn:()=>{ bump("fit",-rint(2,4)); return "需要時間慢慢恢復。"; }},
+     {t:"缺賽休養", s:"缺賽 1 場", fn:()=>{ G.missNext=1; G.missReason="頸部傷勢"; return "你選擇缺席一站徹底休養。"; }},
+   ]},
+];
+function misfortune(){
+  const m = pick(MISFORTUNES);
+  showModal("⚠️ "+m.title, m.desc, m.choices.map(c=>({
+    label:`${c.t} <small>${c.s}</small>`, risky:c.risky,
+    fn:()=>{ const res = c.fn(); updateHeader(); save();
+             addCard(`<div class="ct"><span class="newsflag">⚠️</span> ${m.tag}</div><div class="cb">${res}</div>`,""); }
+  })), m.tag);
+}
+
+/* ========================================================= */
 /*  UI 渲染                                                  */
 /* ========================================================= */
 function addCard(html, cls){
@@ -753,10 +901,13 @@ function ratingWord(p){ return p>=75?"★★★ 天才":p>=55?"★★ 可造之�
 
 function renderResultCard(r){
   let cls, label;
-  if(r.dnf){ cls="pdnf"; label="DNF"; }
+  if(r.dns){ cls="pdnf"; label="DNS"; }
+  else if(r.dnf){ cls="pdnf"; label="DNF"; }
   else cls = r.pos===1?"p1":r.pos===2?"p2":r.pos===3?"p3":"pmid", label="P"+r.pos;
   // 主畫面只顯示：名次 + 分站名稱
-  const sub = r.dnf
+  const sub = r.dns
+    ? `<span style="color:var(--lgrey)">缺賽 · ${r.reason}</span>`
+    : r.dnf
     ? `<span style="color:var(--red)">退賽原因 · ${r.reason}</span>`
     : `本站積分 <b style="color:var(--gold)">+${r.pts||0}</b>`;
   addCard(
@@ -792,6 +943,7 @@ function updateHeader(){
   $("#hRound").textContent = G.round+"/"+t.races;
   $("#hRep").textContent = Math.round(G.rep);
   $("#hPts").textContent = G.seasonStat? G.seasonStat.points : 0;
+  const mEl = $("#hMoney"); if(mEl) mEl.textContent = (G.money||0)+"M";
   updateAttrs();
 }
 function updateAttrs(){
@@ -806,6 +958,7 @@ function render(){ updateHeader(); }
 function setMainBtn(text, fn){
   const b=$("#mainBtn"); b.textContent=text; b.onclick=fn; b.disabled=false;
   $("#ffBtn").disabled = (G.tier && G.round>=TIERS[G.tier].races);
+  const inv=$("#investBtn"); if(inv) inv.disabled=false;   // 轉場後重新啟用投資鈕（修：升上 F1 後投資鈕卡住）
 }
 function hintSeasonEnd(){ setMainBtn("🏁 結算賽季", ()=>endSeason()); $("#ffBtn").disabled=true; }
 
@@ -876,4 +1029,5 @@ function initStart(){
 /* ---------- 綁定 ---------- */
 $("#mainBtn").onclick = ()=>nextRace();
 $("#ffBtn").onclick   = ()=>fastForwardSeason();
+$("#investBtn").onclick = ()=>openInvest();
 initStart();
