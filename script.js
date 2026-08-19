@@ -99,7 +99,7 @@ function newGame(name, number, country, mode, talent){
     field: null, seasonStat: null,
     totals: {races:0, wins:0, podiums:0, poles:0, points:0, dnfs:0,
              titles:{KART:0,F4:0,F3:0,F2:0,F1:0}, wdc:0, bestWDC:99, seasons:0,
-             firstWinAge:null, firstTitleAge:null, underdogWin:false},
+             firstWinAge:null, firstTitleAge:null, underdogWin:false, h2hWin:0, h2hLose:0},
     teamHistory:{}, startMode:mode, badStreak:0, missNext:0, missReason:"", sponsor:null, teamStint:0,
     timeline: [], over:false, lastResult:null,
   };
@@ -120,7 +120,8 @@ function driverRating(wet){
 function startSeason(firstEver){
   const t = TIERS[G.tier];
   G.round = 0;
-  G.seasonStat = {points:0, wins:0, podiums:0, poles:0, dnfs:0, best:99, tier:G.tier, teamKey:G.teamKey};
+  G.seasonStat = {points:0, wins:0, podiums:0, poles:0, dnfs:0, best:99, tier:G.tier, teamKey:G.teamKey, h2hWin:0, h2hLose:0};
+  G.teamMate = null;   // 本季隊友（僅 F1 有）
   // 本季隨機挑幾站當「決策賽」：比賽進行中會跳出關鍵抉擇
   const nDec = clamp(Math.round(t.races*0.4), 2, 4);
   G.decisionRounds = []; { const used={}; while(G.decisionRounds.length<nDec){ const r=rint(1,t.races); if(!used[r]){used[r]=1; G.decisionRounds.push(r);} } }
@@ -132,6 +133,7 @@ function startSeason(firstEver){
       const lineup = F1_LINEUPS[tm.key] || [[pick(AI_NAMES),60],[pick(AI_NAMES),56]];
       if(isMyTeam){
         // 玩家取代二號車手，留下明星隊友一起出賽
+        G.teamMate = lineup[0][0];   // 你的隊友（該隊明星車手）
         field.push(makeEntry(lineup[0][0], tm.perf, false, tm.key, false, lineup[0][1]));
         field.push(makeEntry(G.name,        tm.perf, true,  tm.key, true));
       } else {
@@ -233,6 +235,19 @@ function resolveFinish(st, opts){
     }
   }
   if(st.pole && !dns){ ss.poles++; tot.poles++; }
+  // 隊友對決（僅 F1、非缺賽）：比誰在前，累積戰績並小幅影響聲望
+  if(!dns && G.tier==="F1" && G.teamMate){
+    const mate = st.cars.find(c => !c.e.isMe && c.e.teamKey === G.teamKey);
+    if(mate){
+      let meAhead = null;
+      if(me.dnf && mate.dnf) meAhead = null;          // 都退賽 → 不計
+      else if(me.dnf) meAhead = false;
+      else if(mate.dnf) meAhead = true;
+      else meAhead = me.pos < mate.pos;
+      if(meAhead === true){ ss.h2hWin=(ss.h2hWin||0)+1; tot.h2hWin=(tot.h2hWin||0)+1; G.rep=clamp(G.rep+0.3,0,100); }
+      else if(meAhead === false){ ss.h2hLose=(ss.h2hLose||0)+1; tot.h2hLose=(tot.h2hLose||0)+1; G.rep=clamp(G.rep-0.15,0,100); }
+    }
+  }
   repFromResult(dns ? 99 : (me.dnf ? 99 : me.pos));
   if(!dns) raceGrowth();
   G.lastResult = {pos:myPos, dnf:me.dnf, dns:dns, track:st.track, wet:st.wet, pole:st.pole && !dns, tierShort:st.t.short, pts:gained,
@@ -247,7 +262,7 @@ function repFromResult(pos){
   } else {
     if(pos===1) d=4; else if(pos<=3) d=2; else if(pos<=6) d=0.8; else if(pos>90) d=-0.4;
   }
-  G.rep = clamp(G.rep + d, 0, 100);
+  G.rep = clamp(G.rep + d*0.2, 0, 100);   // 聲望上升放慢：降為原本的 20%
 }
 
 /* ---------- 成長 / 衰退 ---------- */
@@ -483,6 +498,19 @@ function renderStage(st, initial){
     d.className = "rs-delta " + (diff>0 ? "rs-up" : diff<0 ? "rs-dn" : ""); }
   const prog = st.laps ? clamp(st.lap/st.laps, 0, 1) : 0;
   const car = $("#rsCar"); car.style.left = (5 + prog*86) + "%"; car.textContent = me.dnf ? "💥" : "🏎️";
+  // 隊友對決即時指示（僅 F1 有隊友）
+  const mateEl = $("#rsMate");
+  if(mateEl){
+    const mate = G.teamMate && st.cars.find(c => !c.e.isMe && c.e.teamKey === G.teamKey);
+    if(mate){
+      if(me.dnf) mateEl.innerHTML = `vs <b>${G.teamMate}</b>`;
+      else if(mate.dnf) mateEl.innerHTML = `vs <b>${G.teamMate}</b> <span class="up">領先（隊友退賽）</span>`;
+      else { const diff = mate.pos - me.pos;   // 正 = 我領先
+        mateEl.innerHTML = `vs <b>${G.teamMate}</b> ` +
+          (diff>0 ? `<span class="up">▲${diff} 領先</span>` : diff<0 ? `<span class="dn">▼${-diff} 落後</span>` : `並駕齊驅`);
+      }
+    } else mateEl.textContent = "";
+  }
   renderTower(st);
 }
 function renderTower(st){
@@ -587,11 +615,9 @@ function decideNextSeat(myPos, champ){
       G.tier=G.tier; startSeason(); beginNextSeasonReady();
     }
   } else {
-    // F1 季末：先處理代言（有合約就領款、到期才簽新），再處理釋出 / 合約
-    seasonEndorsement(()=>{
-      if((G.badStreak||0) >= 3 && rand() < 0.8){ dropFromF1(); return; }  // 連續三季低迷 → 大機率被釋出
-      offerF1Seats(false);
-    });
+    // F1 季末：先處理釋出 / 選車隊；確定歸屬後（在 offerF1Seats 內）才簽代言 —— 代言不會影響車隊選擇
+    if((G.badStreak||0) >= 3 && rand() < 0.8){ dropFromF1(); return; }   // 連續三季低迷 → 大機率被釋出
+    offerF1Seats(false);
   }
 }
 // 季末代言結算：合約在期間內每季自動領款；到期（或沒合約）才提供新的代言選擇
@@ -620,8 +646,9 @@ function offerNewSponsor(next){
   const deals = [
     {name:"地方贊助商", pay:Math.max(2,Math.round(base*0.55)), years:2, risky:false},
   ];
-  if(rep >= 42) deals.push({name:"品牌代言",   pay:base,             years:3, risky:false});
-  if(rep >= 68) deals.push({name:"國際大品牌", pay:Math.round(base*1.4), years:3, risky:true});
+  const wins = (G.totals && G.totals.wins) || 0;
+  if(rep >= 45) deals.push({name:"品牌代言",   pay:base,             years:3, risky:false});
+  if(rep >= 68 && wins >= 1) deals.push({name:"國際大品牌", pay:Math.round(base*1.4), years:3, risky:true});
   const choices = deals.map(d=>({
     label:`${d.risky?"🌟":"🤝"} ${d.name} <small>約 ${d.pay}M/季 · 為期 ${d.years} 季${d.risky?" · 有形象風險":""}</small>`,
     risky:d.risky,
@@ -638,8 +665,8 @@ function offerNewSponsor(next){
       next(); }
   }));
   choices.push({ label:"專注比賽，暫不接代言", fn:()=>{ next(); } });
-  const hint = rep < 42 ? "　（名氣還不夠，只有地方贊助商找上門，打出成績才會有大品牌。）"
-             : rep < 68 ? "　（再打響名號，就能簽下國際大品牌。）" : "";
+  const hint = rep < 45 ? "　（名氣還不夠，只有地方贊助商找上門，打出成績才會有大品牌。）"
+             : (rep < 68 || wins < 1) ? "　（再打響名號、贏下比賽，就能簽下國際大品牌。）" : "";
   showModal(`🤝 季末代言 — 聲望 ${Math.round(rep)}`, "簽下代言合約，可在合約期間每季獲得資金。"+hint, choices, "代言");
 }
 
@@ -718,9 +745,9 @@ function beginNextSeasonReady(){ seasonClosing=false; busy=false; updateHeader()
 function offerF1Seats(firstTime){
   const rep = G.rep;
   const sorted = [...TEAMS].sort((a,b)=>a.perf-b.perf);
-  // 市場價值 = 聲望與「當前車手實力」的加權：數據滿的好手就算聲望還沒跟上，也會被前段隊看中
+  // 市場價值主要看「聲望／實戰成績」，技術只給小加成：新秀要靠成績累積名氣，才能爬上前段隊
   const skillPct = clamp(driverRating(false), 0, 100);
-  const value = clamp(Math.max(rep, rep*0.4 + skillPct*0.6), 0, 100);
+  const value = clamp(rep*0.85 + skillPct*0.15, 0, 100);
   const idx = clamp(Math.round((value/100)*(sorted.length-1)), 0, sorted.length-1);
   const opts = [];
   const pushTeam = (tm, stay) => { if(tm && !opts.find(o=>o.tm.key===tm.key)) opts.push({tm, stay:!!stay}); };
@@ -733,23 +760,34 @@ function offerF1Seats(firstTime){
     const expectedPos = (sorted.length - teamRank) * 2;        // 車越好，期望名次越前
     const myWDC = G.lastWDCPos || 20;
     const ss = G.seasonStat;
-    const goodSeason = ss.wins>0 || ss.podiums>0 || myWDC <= expectedPos + 3;
+    const beatMate = (ss.h2hWin||0) > (ss.h2hLose||0);   // 壓制隊友也算好賽季
+    const goodSeason = ss.wins>0 || ss.podiums>0 || myWDC <= expectedPos + 3 || beatMate;
     if(teamRank >= 5 && !goodSeason){ renewAllowed = false; curDropped = true; }  // 前段隊 + 表現差 → 不續約
   }
+  const reach = (G.seasonStat.wins>0 || G.seasonStat.podiums>=2) ? 2 : 1;  // 打出成績 → 挖得更高
+  const freePick = !firstTime && rep >= 55;           // 名氣夠 → 自由挑選夠格範圍內的任一車隊
   if(firstTime){ pushIdx(0); pushIdx(1); }            // 新秀：只有後段班
-  else {
+  else if(freePick){
+    let maxRank = clamp(idx + reach, 0, sorted.length-1);   // 你能搆到的最強車隊
+    if(G.seasonStat.wins>=2) maxRank = sorted.length-1;     // 多勝 → 連頂級隊都能選
+    for(let r=maxRank; r>=0; r--){                          // 由強到弱列出整個範圍
+      const tm = sorted[r];
+      if(tm.key===G.teamKey && !renewAllowed) continue;     // 被釋出的現隊不列入
+      pushTeam(tm, tm.key===G.teamKey && renewAllowed);
+    }
+  } else {
     if(renewAllowed) pushTeam(cur, true);            // 表現達標才給「續約留任現隊」
-    const reach = (G.seasonStat.wins>0 || G.seasonStat.podiums>=2) ? 2 : 1;  // 打出成績 → 挖得更高
     pushIdx(idx+reach); pushIdx(idx+1); pushIdx(idx); pushIdx(idx-1);
-    if(G.seasonStat.wins>0) pushIdx(sorted.length-1);   // 有勝場，頂級隊必來敲門
-    if(skillPct>=88) pushIdx(sorted.length-2);          // 實力頂尖，強隊也注意到你
+    if(G.seasonStat.wins>=2 && rep>=55) pushIdx(sorted.length-1);   // 多次奪勝＋已成名 → 頂級隊敲門
   }
-  const uniq = opts.slice(0, firstTime ? 2 : 4);
+  const uniq = firstTime ? opts.slice(0,2) : (freePick ? opts : opts.slice(0,4));
   const title = firstTime ? "🏁 登上 F1！" : "📝 季末合約";
   const desc  = firstTime
     ? "你一路過關斬將，終於拿到 F1 席位！選擇你的第一支車隊："
     : `市場價值 ${Math.round(value)}（聲望 ${Math.round(rep)} · 實力 ${Math.round(skillPct)}）。`
-      + (curDropped ? `⚠️ ${cur.name} 對你本季表現不滿意，未提供續約，你得另尋車隊。` : "你可以續約留任，或接受其他車隊的邀約：");
+      + (curDropped ? `⚠️ ${cur.name} 對你本季表現不滿意，未提供續約。` : "")
+      + (freePick ? "你已是搶手車手，可自由挑選夠格範圍內的任一車隊："
+                  : (curDropped ? "你得另尋車隊。" : "你可以續約留任，或接受其他車隊的邀約："));
   const choices = uniq.map(o=>{
     const tm = o.tm, badge = o.stay ? "🔁 續約留任 · " : "";
     return {
@@ -764,11 +802,15 @@ function offerF1Seats(firstTime){
         }
         if(firstTime){ G.tier="F1"; G.seasonsInTier=0; }
         if(!staying) G.teamStint = 0;                     // 換隊 → 年資重新起算
-        G.teamKey = tm.key; startSeason(); beginNextSeasonReady();
+        G.teamKey = tm.key;
         if(staying) addCard(`<div class="ct"><span class="newsflag">🔁</span> 續約</div><div class="ch">留任 ${tm.name}</div>`+
                      `<div class="cb">你選擇與 <b>${tm.name}</b> 續約，再戰一季（性能 ${tm.perf}）。</div>`,"season");
         else addCard(`<div class="ct"><span class="newsflag">✍️</span> 簽約</div><div class="ch">加盟 ${tm.name}</div>`+
-                     `<div class="cb">下一季你將為 <b>${tm.name}</b> 出賽（性能 ${tm.perf}）。${loyaltyNote}</div>`,"season"); }
+                     `<div class="cb">下一季你將為 <b>${tm.name}</b> 出賽（性能 ${tm.perf}）。${loyaltyNote}</div>`,"season");
+        updateHeader(); save();
+        // 確定車隊後才簽代言（第一次登上 F1 直接開賽，不簽代言）
+        if(firstTime){ startSeason(); beginNextSeasonReady(); }
+        else seasonEndorsement(()=>{ startSeason(); beginNextSeasonReady(); }); }
     };
   });
   // 35 歲後可主動退役掛盔
@@ -826,6 +868,7 @@ function retire(){
   if(teamsCount>0) cs += `，效力過 ${teamsCount} 支 F1 車隊`;
   cs += `。累積 ${tot.wins} 場分站冠軍、${tot.podiums} 次登上頒獎台、${tot.poles} 個桿位`;
   if(tot.wdc>0) cs += `，並奪下 ${tot.wdc} 座世界冠軍 🏆`;
+  if(((tot.h2hWin||0)+(tot.h2hLose||0)) > 0) cs += `。生涯隊內對決 ${tot.h2hWin||0}–${tot.h2hLose||0}`;
   cs += `。最終於 ${G.age} 歲高掛頭盔 —— 被譽為「${title}」。${sub}`;
   $("#careerSummary").innerHTML = cs;
 
@@ -903,6 +946,7 @@ function evaluateAchievements(){
     {icon:"🚀", name:"白手起家",           desc:"從卡丁車一路加冕世界冠軍",         got: G.startMode==="karting" && t.wdc>=1},
     {icon:"❤️", name:"一隊之魂",           desc:"效力同一支車隊長達 8 季",         got: maxStint>=8},
     {icon:"🧳", name:"浪子車手",           desc:"生涯效力過 6 支以上不同車隊",     got: teams.length>=6},
+    {icon:"⚔️", name:"隊內霸主",           desc:"生涯壓制隊友（交手勝 ≥ 40 且 2 倍於落敗）", got: (t.h2hWin||0)>=40 && (t.h2hWin||0) >= (t.h2hLose||0)*2},
     {icon:"🐐", name:"逆境英雄",           desc:"駕駛後段班賽車仍奪下分站冠軍",     got: !!t.underdogWin},
     {icon:"🎓", name:"青訓王者",           desc:"在青訓級別奪得過冠軍",            got: juniorTitles>=1},
     {icon:"💥", name:"撞車藝術家",         desc:"生涯累積 15 次以上退賽（DNF）",    got: t.dnfs>=15},
@@ -1105,10 +1149,18 @@ function renderSeasonCard(table, myPos, champ, teamName, salary){
   const meRow = myPos>5 ? `<tr class="me"><td class="mp">${myPos}</td><td>${G.name}</td><td class="mpt">${table[myPos-1].pts}</td></tr>` : "";
   const ss = G.seasonStat;
   const wdcChamp = champ && G.tier==="F1";                 // 世界冠軍 → 流動彩色邊框
+  // 隊友對決結果（僅 F1）
+  let h2hLine = "";
+  if(G.tier==="F1" && G.teamMate){
+    const w=ss.h2hWin||0, l=ss.h2hLose||0;
+    const tag = w>l ? " ✅ 壓制隊友" : w<l ? " ❌ 不敵隊友" : " 平分秋色";
+    h2hLine = `<div class="cb" style="color:var(--blue)">⚔️ 隊內對決：你 ${w} – ${l} ${G.teamMate}${tag}</div>`;
+  }
   addCard(
     `<div class="ct">🏁 賽季 ${G.season} 結束 · ${TIERS[G.tier].name}</div>`+
     `<div class="ch">${champ?(wdcChamp?"🏆 世界冠軍！":"🏆 賽季冠軍！"):"WDC 第 "+myPos+" 名"}</div>`+
     `<div class="cb">${teamName}｜${ss.wins} 勝 · ${ss.podiums} 登台 · ${ss.poles} 桿位 · ${ss.points} 分　<span style="color:var(--lgrey)">薪資 +${salary}M</span></div>`+
+    h2hLine+
     `<table class="mini-tbl">${top}${meRow}</table>`,
     "season" + (wdcChamp ? " champ-glow" : ""));
 }
@@ -1237,7 +1289,7 @@ function bumpPlayCount(){
 }
 
 /* ---------- 首頁跑馬燈新聞條 ---------- */
-const NEWS_TEXT = "🏁 最新更新！🌈 奪下世界冠軍有流動彩色慶祝；🛞 賽中策略決策：進站選軟／中／硬胎、天氣突變賭雨胎、Push／Save 模式（跨多圈影響戰局）；🤝 代言依名氣解鎖（新秀先從地方贊助商做起，成名才有大品牌）、續約要看成績、同隊滿兩年跳槽掉聲望；💵 薪資與身價重新平衡，更合理；🏆 退休顯示與你最相似的真實車手＋匹配度；💰 資產投資、⚠️ 突發傷病、🌍 全球遊玩次數。快展開屬於你的傳奇 🏆";
+const NEWS_TEXT = "🏁 最新更新！⚔️ 隊友對決：跟同隊明星車手逐場較勁，直播即時顯示領先/落後，壓制隊友加聲望還能保住席位；🏆 名氣夠就能自由挑選整個範圍的車隊，不再被塞兩三支；📊 車隊行情看實戰成績為主，新秀要跑出成績才上頂隊（不會第二季就紅牛）；🤝 先選車隊才簽代言、大品牌需成名＋贏過比賽；🌈 奪世界冠軍流動彩色慶祝；🛞 賽中策略決策：進站選胎、天氣賭雨胎、Push／Save；🎯 退休顯示與你最相似的真實車手；💰 資產投資、⚠️ 突發傷病、🌍 全球遊玩次數。快展開屬於你的傳奇 🏆";
 function initNews(){
   const el = $("#newsContent"); if(!el) return;
   const sep = "　　🏁　　";
@@ -1250,6 +1302,12 @@ initNews();
 
 /* ---------- 更新內容頁（不規則磚牆排版） ---------- */
 const UPDATES = [
+  {icon:"⚔️", title:"隊友對決", color:"#48cae4", feat:true,
+   body:"跟同隊的明星車手開同一台車逐場較勁！直播即時顯示你對隊友的領先/落後，賽季結算比戰績；壓制隊友能加聲望、還能保住席位，生涯壓制隊友可解鎖成就。"},
+  {icon:"🏆", title:"自由選車隊", color:"#ffd54a", feat:true,
+   body:"名氣達標後，季末合約會列出你夠格範圍內的所有車隊，由你自由挑選，不再只有那兩三支。"},
+  {icon:"📊", title:"真實車隊行情", color:"#3671c6",
+   body:"車隊邀約以實戰成績（聲望）為主，天賦高的新秀也得跑出成績才能上頂級隊，不會第二季就被頂隊挖角。"},
   {icon:"🌈", title:"世界冠軍慶祝", color:"#a855f7", feat:true,
    body:"奪下 F1 世界冠軍那季，賽季結算卡改用流動的彩虹漸層邊框與標題，替你的封王時刻慶祝。"},
   {icon:"🛞", title:"賽中策略決策", color:"#e10600", feat:true,
