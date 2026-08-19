@@ -334,8 +334,9 @@ function simRaceInstant(){
 }
 
 /* ---------- 比賽中的關鍵抉擇（決策賽才會出現） ---------- */
+function hasDRS(){ return G.tier==="F1" || G.tier==="F2"; }   // DRS 僅 F1／F2 有；卡丁車、F4、F3 沒有
 const RACE_MOMENTS = [
-  {tag:"超車機會", desc:st=>`第 ${st.lap} 圈 — 前車近在眼前，DRS 已開啟。要出手嗎？`,
+  {tag:"超車機會", desc:st=>`第 ${st.lap} 圈 — 前車近在眼前，${hasDRS()?"DRS 已開啟":"抓到他的尾流"}。要出手嗎？`,
    choices:[
      {t:"全力攻擊，切內線超車", s:"高風險 · 可能大幅前進或撞車", risky:true, apply:st=>{
         const r=rand();
@@ -344,7 +345,7 @@ const RACE_MOMENTS = [
         else { st.me.dnf=true; st.me.cum=-1e9; st.me.dnfReason="進攻失誤撞牆"; return "💥 進彎太深，撞車退賽！"; } }},
      {t:"保持耐心，穩住輪胎", s:"安全 · 維持位置", apply:st=>{ st.me.cum+=0.5*st.unit; bump("cons",1); return "🧊 你冷靜跟車，保留實力。"; }},
    ]},
-  {tag:"後方施壓", desc:st=>`第 ${st.lap} 圈 — 後車緊咬不放，就在 DRS 範圍內。`,
+  {tag:"後方施壓", desc:st=>`第 ${st.lap} 圈 — 後車緊咬不放，${hasDRS()?"就在 DRS 範圍內":"靠著尾流貼上來"}。`,
    choices:[
      {t:"強硬關門防守", s:"高風險 · 守住或接觸", risky:true, apply:st=>{
         const r=rand();
