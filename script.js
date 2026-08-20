@@ -10,6 +10,51 @@ const rand = () => Math.random();
 const clamp = (v,a,b) => Math.max(a, Math.min(b,v));
 const pick = arr => arr[Math.floor(Math.random()*arr.length)];
 
+/* ========================================================= */
+/*  多語系（中 / EN）                                          */
+/* ========================================================= */
+let LANG = "zh"; try{ LANG = localStorage.getItem("f1life_lang") || "zh"; }catch(e){}
+function L(zh, en){ return (LANG==="en" && en!=null) ? en : zh; }   // 就地雙語字串
+function setLang(l){
+  LANG = l; try{ localStorage.setItem("f1life_lang", l); }catch(e){}
+  document.documentElement.lang = (l==="en") ? "en" : "zh-Hant";
+  applyI18n();
+}
+// 靜態介面字典：key -> [中文, English]
+const DICT = {
+  app_sub:["從青訓到傳奇 — 一路點下去，五分鐘走完一生 🏁","From karting to legend — tap through a whole F1 career in five minutes 🏁"],
+  lbl_name:["車手名字","Driver Name"], ph_name:["輸入你的名字","Enter your name"],
+  lbl_num:["號碼","No."], lbl_country:["出生國家","Country"], lbl_mode:["起步方式","Start From"],
+  lbl_talent:["天賦（難度）","Talent (Difficulty)"],
+  mode_k_t:["🏎️ 從卡丁車起步","🏎️ Start from Karting"], mode_k_d:["卡丁→F4→F3→F2→F1，完整成長弧（推薦）","Karting→F4→F3→F2→F1, full journey (recommended)"],
+  mode_f_t:["🏁 直接進 F1","🏁 Straight to F1"], mode_f_d:["18 歲直接坐上 F1 後段班，快速上手","Start at 18 in a backmarker F1 seat, quick to learn"],
+  tal_gen:["天才新星 — 成長快、上限高（簡單）","Prodigy — fast growth, high ceiling (Easy)"],
+  tal_std:["可造之材 — 標準生涯（普通）","Promising — standard career (Normal)"],
+  tal_late:["大器晚成 — 成長慢、要靠努力（困難）","Late Bloomer — slow growth, hard graft (Hard)"],
+  start_btn:["🏁 展開生涯","🏁 Start Career"],
+  dice_title:["隨機名字","Random name"],
+  err_name:["請先輸入車手名字。","Please enter a driver name first."],
+  news_label:["📢 最新消息","📢 NEWS"], news_title:["點我看完整更新內容","Tap to see full update notes"],
+  st_age:["年齡","Age"], st_sr:["賽季 · 分站","Season · Round"], st_rep:["聲望","Fame"], st_pts:["積分","Points"], st_money:["資產","Money"],
+  attr_pace:["速度","Pace"], attr_craft:["車技","Craft"], attr_cons:["穩定","Consist."], attr_wet:["濕地","Wet"], attr_fit:["體能","Fitness"],
+  btn_next:["下一場 ▶","Next Race ▶"], btn_endseason:["🏁 結算賽季","🏁 End Season"], btn_ff:["⏩ 整季","⏩ Season"],
+  ttl_standings:["目前排行榜","Standings"], ttl_updates:["更新內容","Update Notes"], ttl_retire:["生涯落幕","Career Over"],
+  ti_invest:["投資訓練（花資產提升能力）","Invest in training (spend money to boost skills)"],
+  ti_standings:["目前排行榜","Standings"],
+  back:["← 返回","← Back"],
+  hd_wdc:["🏆 車手榜 WDC","🏆 Drivers WDC"], hd_wcc:["🏭 車隊榜 WCC","🏭 Constructors WCC"], hd_report:["🏁 本季各站戰報","🏁 Season Results"],
+  hd_updates_sub:["點卡片看每一項改動 · v1.8 🏁","Tap a card for each change · v1.8 🏁"],
+  app_title:["LIFE · 車手生涯","LIFE · Driver Career"],
+};
+function tr(key){ const d = DICT[key]; return d ? L(d[0], d[1]) : key; }
+function applyI18n(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>{ const d=DICT[el.getAttribute("data-i18n")]; if(d) el.innerHTML = L(d[0],d[1]); });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ const d=DICT[el.getAttribute("data-i18n-ph")]; if(d) el.placeholder = L(d[0],d[1]); });
+  document.querySelectorAll("[data-i18n-title]").forEach(el=>{ const d=DICT[el.getAttribute("data-i18n-title")]; if(d) el.title = L(d[0],d[1]); });
+  if(typeof rebuildDynamicUI === "function") rebuildDynamicUI();
+  document.querySelectorAll(".lang-btn").forEach(b=> b.classList.toggle("on", b.getAttribute("data-lang")===LANG));
+}
+
 /* ---------- 積分 ---------- */
 const POINTS = [25,18,15,12,10,8,6,4,2,1];
 
@@ -44,18 +89,22 @@ const TRACKS = ["巴林","吉達","墨爾本","上海","邁阿密","蒙地卡羅
 // DNF 退賽原因（機械故障 / 意外）
 const DNF_REASONS = ["引擎故障","變速箱故障","液壓系統失效","煞車失靈","懸吊斷裂","電力系統故障","動力單元報銷","賽車起火","爆胎","打滑撞牆","賽車散架","漏油"];
 const COUNTRIES = [
-  ["🇹🇼","臺灣"],["🇭🇰","香港"],["🇲🇴","澳門"],["🇨🇳","中國"],["🇯🇵","日本"],["🇰🇷","南韓"],
-  ["🇲🇾","馬來西亞"],["🇸🇬","新加坡"],["🇹🇭","泰國"],["🇮🇩","印尼"],["🇵🇭","菲律賓"],["🇻🇳","越南"],
-  ["🇮🇳","印度"],["🇬🇧","英國"],["🇳🇱","荷蘭"],["🇪🇸","西班牙"],["🇲🇨","摩納哥"],["🇮🇹","義大利"],
-  ["🇫🇷","法國"],["🇩🇪","德國"],["🇧🇪","比利時"],["🇨🇭","瑞士"],["🇦🇹","奧地利"],["🇫🇮","芬蘭"],
-  ["🇸🇪","瑞典"],["🇩🇰","丹麥"],["🇵🇱","波蘭"],["🇵🇹","葡萄牙"],["🇮🇪","愛爾蘭"],["🇧🇷","巴西"],
-  ["🇦🇷","阿根廷"],["🇲🇽","墨西哥"],["🇺🇸","美國"],["🇨🇦","加拿大"],["🇦🇺","澳洲"],["🇳🇿","紐西蘭"],
-  ["🇿🇦","南非"],["🇦🇪","阿聯"],["🇸🇦","沙烏地"],
+  ["🇹🇼","臺灣","Taiwan"],["🇭🇰","香港","Hong Kong"],["🇲🇴","澳門","Macau"],["🇨🇳","中國","China"],["🇯🇵","日本","Japan"],["🇰🇷","南韓","South Korea"],
+  ["🇲🇾","馬來西亞","Malaysia"],["🇸🇬","新加坡","Singapore"],["🇹🇭","泰國","Thailand"],["🇮🇩","印尼","Indonesia"],["🇵🇭","菲律賓","Philippines"],["🇻🇳","越南","Vietnam"],
+  ["🇮🇳","印度","India"],["🇬🇧","英國","UK"],["🇳🇱","荷蘭","Netherlands"],["🇪🇸","西班牙","Spain"],["🇲🇨","摩納哥","Monaco"],["🇮🇹","義大利","Italy"],
+  ["🇫🇷","法國","France"],["🇩🇪","德國","Germany"],["🇧🇪","比利時","Belgium"],["🇨🇭","瑞士","Switzerland"],["🇦🇹","奧地利","Austria"],["🇫🇮","芬蘭","Finland"],
+  ["🇸🇪","瑞典","Sweden"],["🇩🇰","丹麥","Denmark"],["🇵🇱","波蘭","Poland"],["🇵🇹","葡萄牙","Portugal"],["🇮🇪","愛爾蘭","Ireland"],["🇧🇷","巴西","Brazil"],
+  ["🇦🇷","阿根廷","Argentina"],["🇲🇽","墨西哥","Mexico"],["🇺🇸","美國","USA"],["🇨🇦","加拿大","Canada"],["🇦🇺","澳洲","Australia"],["🇳🇿","紐西蘭","New Zealand"],
+  ["🇿🇦","南非","South Africa"],["🇦🇪","阿聯","UAE"],["🇸🇦","沙烏地","Saudi Arabia"],
 ];
+const cName = c => c ? L(c[1], c[2]||c[1]) : "";   // 依語言取國名
 // 青訓級別對手：真實賽車手姓氏（含現役 F2/F3 新秀與經典名將）
 const AI_NAMES = ["Maini","Martins","Vesti","Hauger","Iwasa","Barnard","Crawford","Fornaroli","Aron","Villeneuve",
   "Mansell","Fittipaldi","Rosberg","Häkkinen","Montoya","Frijns","Pourchaire","Doohan","Drugovich","Daruvala",
   "Verschoor","Novalak","Stanek","Browning","Beganovic","Goethe","Edgar","Collet","Wharton","Bedrin","Maloney","Hadjar"];
+// 業餘/青訓賽場的名人彩蛋（偶爾混入車手名單，看到會心一笑）
+const EASTER_NAMES = ["Messi","Ronaldo","Neymar","Mbappé","Beckham","Jordan","LeBron","Curry","Bolt","Federer",
+  "Nadal","Woods","Phelps","Kobe","Musk","Bezos","Gates","Bieber","Swift","Drake","Bond 007","Maverick","Skywalker","Kong"];
 
 // F1 各隊真實車手陣容（依 2026 車隊，近似陣容）：[姓氏, 實力值]
 const F1_LINEUPS = {
@@ -74,11 +123,11 @@ const F1_LINEUPS = {
 
 /* ---------- 屬性定義 ---------- */
 const ATTRS = [
-  {key:"pace",  name:"速度"},
-  {key:"craft", name:"車技"},
-  {key:"cons",  name:"穩定"},
-  {key:"wet",   name:"濕地"},
-  {key:"fit",   name:"體能"},
+  {key:"pace",  name:"速度", en:"Pace"},
+  {key:"craft", name:"車技", en:"Craft"},
+  {key:"cons",  name:"穩定", en:"Consist."},
+  {key:"wet",   name:"濕地", en:"Wet"},
+  {key:"fit",   name:"體能", en:"Fitness"},
 ];
 
 /* ========================================================= */
@@ -120,7 +169,7 @@ function driverRating(wet){
 function startSeason(firstEver){
   const t = TIERS[G.tier];
   G.round = 0;
-  G.seasonStat = {points:0, wins:0, podiums:0, poles:0, dnfs:0, best:99, tier:G.tier, teamKey:G.teamKey, h2hWin:0, h2hLose:0};
+  G.seasonStat = {points:0, wins:0, podiums:0, poles:0, dnfs:0, best:99, tier:G.tier, teamKey:G.teamKey, h2hWin:0, h2hLose:0, rounds:[]};
   G.teamMate = null;   // 本季隊友（僅 F1 有）
   // 本季隨機挑幾站當「決策賽」：比賽進行中會跳出關鍵抉擇
   const nDec = clamp(Math.round(t.races*0.4), 2, 4);
@@ -143,9 +192,10 @@ function startSeason(firstEver){
     });
     // 確保玩家只有一個 isMe
   } else {
-    // 青訓：20 台統一規格車，純看天賦
+    // 青訓：20 台統一規格車，純看天賦（約 1 成機率混入名人彩蛋名字）
     for(let i=0;i<19;i++){
-      field.push(makeEntry(pick(AI_NAMES)+" "+pick(["Jr","","II","·R","·M"]).trim(), t.base, false, null, false, rint(t.base-6, t.base+t.spread)));
+      const nm = rand()<0.10 ? pick(EASTER_NAMES) : (pick(AI_NAMES)+" "+pick(["Jr","","II","·R","·M"])).trim();
+      field.push(makeEntry(nm, t.base, false, null, false, rint(t.base-6, t.base+t.spread)));
     }
     field.push(makeEntry(G.name, t.base, true, null, true));
   }
@@ -250,6 +300,14 @@ function resolveFinish(st, opts){
   }
   repFromResult(dns ? 99 : (me.dnf ? 99 : me.pos));
   if(!dns) raceGrowth();
+  // 記錄本站戰報（冠軍 + 玩家結果），供排行榜頁顯示
+  const winnerCar = finishers[0];
+  (ss.rounds = ss.rounds || []).push({
+    track: st.track,
+    winner: winnerCar ? (winnerCar.e.isMe ? G.name : winnerCar.e.label) : "—",
+    winnerMe: !!(winnerCar && winnerCar.e.isMe),
+    myPos: myPos, myPts: gained
+  });
   G.lastResult = {pos:myPos, dnf:me.dnf, dns:dns, track:st.track, wet:st.wet, pole:st.pole && !dns, tierShort:st.t.short, pts:gained,
                   reason: dns ? (opts.reason||"傷病") : (me.dnf ? (me.dnfReason || pick(DNF_REASONS)) : null)};
   return G.lastResult;
@@ -353,9 +411,9 @@ function finishRacePost(){
   const t = TIERS[G.tier];
   if(G.round >= t.races){ hintSeasonEnd(); return; }
   const roll = rand();
-  if(roll < 0.06){ misfortune(); }                       // 突發狀況 / 傷病
-  else if(G.sponsor && roll < 0.14){ sponsorEvent(); }   // 代言期間動態事件（醜聞、活動、獎金…）
-  else if(roll < 0.30){ maybeEvent(); }                  // 一般賽間事件
+  if(roll < 0.09){ misfortune(); }                       // 突發狀況 / 傷病（種類更多了）
+  else if(G.sponsor && roll < 0.17){ sponsorEvent(); }   // 代言期間動態事件（醜聞、活動、獎金…）
+  else if(roll < 0.33){ maybeEvent(); }                  // 一般賽間事件
 }
 // 因傷病缺賽（現場版）：AI 照跑計分，玩家不計分並記為 DNS
 function playMissedRace(){
@@ -1123,6 +1181,39 @@ const MISFORTUNES = [
      {t:"物理治療", s:"-體能", fn:()=>{ bump("fit",-rint(2,4)); return "需要時間慢慢恢復。"; }},
      {t:"缺賽休養", s:"缺賽 1 場", fn:()=>{ G.missNext=1; G.missReason="頸部傷勢"; return "你選擇缺席一站徹底休養。"; }},
    ]},
+  {tag:"意外", title:"賽車測試泡水", desc:"一場突如其來的暴雨，把你正在測試的賽車泡進積水，電子系統進水受損。",
+   choices:[
+     {t:"缺賽送修", s:"缺賽 1 場", fn:()=>{ G.missNext=1; G.missReason="賽車進水送修"; return "賽車必須送回工廠搶修，你將缺席下一站。"; }},
+     {t:"連夜搶修硬上", s:"風險：狀態受影響", risky:true, fn:()=>{ if(rand()<0.5){ bump("cons",-rint(1,3)); return "團隊連夜搶修，但你熬夜沒睡好，穩定度下滑。"; } return "團隊神級搶修，你有驚無險地趕上比賽。"; }},
+   ]},
+  {tag:"突發", title:"班機大延誤", desc:"轉機遇上罷工，你的班機嚴重延誤，差點趕不上這站比賽。",
+   choices:[
+     {t:"包機火速趕到", s:"-一點體能", fn:()=>{ bump("fit",-rint(1,3)); return "你及時趕到，但舟車勞頓、體能小折損。"; }},
+     {t:"錯過排位練習", s:"風險：節奏亂", risky:true, fn:()=>{ bump("cons",-rint(1,3)); return "你錯過了排位練習，整個週末的節奏被打亂。"; }},
+   ]},
+  {tag:"風波", title:"社群失言風波", desc:"你隨手發的一則貼文被斷章取義，在網路上掀起爭議。",
+   choices:[
+     {t:"公開道歉", s:"-聲望", fn:()=>{ G.rep=clamp(G.rep-rint(2,4),0,100); return "你誠懇道歉平息風波，但形象仍受了點傷。"; }},
+     {t:"硬拗到底", s:"風險：越描越黑", risky:true, fn:()=>{ if(rand()<0.5){ G.rep=clamp(G.rep-rint(3,6),0,100); return "越描越黑，聲望重挫。"; } G.rep=clamp(G.rep+1,0,100); return "神反轉！粉絲反而更力挺你。"; }},
+   ]},
+  {tag:"健康", title:"熱浪中暑", desc:"這一站氣溫破表，比賽中你在悶熱的座艙裡中暑了。",
+   choices:[
+     {t:"補水硬撐完賽", s:"-體能", fn:()=>{ bump("fit",-rint(2,4)); return "你脫水苦撐完賽，體能明顯透支。"; }},
+   ]},
+  {tag:"意外", title:"器材遺失", desc:"航空公司弄丟了你的專屬座椅與頭盔，只能臨時借用備品。",
+   choices:[
+     {t:"用借來的裝備上場", s:"-一點手感", fn:()=>{ bump("craft",-rint(1,3)); return "裝備不合手，你的操控信心受到影響。"; }},
+   ]},
+  {tag:"喜事", title:"人生大事", desc:"休賽期你結婚了！幸福滿滿，但蜜月佔用了不少訓練時間。",
+   choices:[
+     {t:"盡情享受幸福", s:"+聲望 · 微耗體能", fn:()=>{ G.rep=clamp(G.rep+2,0,100); bump("fit",-1); return "婚禮登上媒體版面，人氣上升，但體能稍微生疏了些。"; }},
+     {t:"婚後立刻回歸操練", s:"+穩定", fn:()=>{ bump("cons",rint(1,3)); return "你迅速收心投入訓練，心態更成熟穩定。"; }},
+   ]},
+  {tag:"突發", title:"卡車翻覆", desc:"運送賽車的卡車在高速公路上翻覆，設備嚴重受損。",
+   choices:[
+     {t:"調用備用車出賽", s:"風險：手感生疏", risky:true, fn:()=>{ bump("cons",-rint(1,2)); return "你臨時換上備用車，設定不熟悉，得重新適應。"; }},
+     {t:"退出本站", s:"缺賽 1 場", fn:()=>{ G.missNext=1; G.missReason="設備運送事故"; return "設備來不及修復，你缺席了這一站。"; }},
+   ]},
 ];
 function misfortune(){
   const m = pick(MISFORTUNES);
@@ -1222,14 +1313,15 @@ function updateHeader(){
 function updateAttrs(){
   $("#attrStrip").innerHTML = ATTRS.map(a=>{
     const v=Math.round(G.attrs[a.key]);
-    return `<div class="attr"><div class="an">${a.name}</div><div class="attr-num">${v}</div><div class="bar"><span style="width:${v}%"></span></div></div>`;
+    return `<div class="attr"><div class="an">${L(a.name,a.en)}</div><div class="attr-num">${v}</div><div class="bar"><span style="width:${v}%"></span></div></div>`;
   }).join("");
 }
 function render(){ updateHeader(); }
 
 /* ---------- 主按鈕狀態 ---------- */
 function setMainBtn(text, fn){
-  const b=$("#mainBtn"); b.textContent=text; b.onclick=fn; b.disabled=false;
+  mainBtnLabel = text;
+  const b=$("#mainBtn"); b.textContent = L(text, MAINBTN_EN[text]||text); b.onclick=fn; b.disabled=false;
   $("#ffBtn").disabled = (G.tier && G.round>=TIERS[G.tier].races);
   const inv=$("#investBtn"); if(inv) inv.disabled=false;   // 轉場後重新啟用投資鈕（修：升上 F1 後投資鈕卡住）
 }
@@ -1293,7 +1385,9 @@ function resumeGame(g){
 let selMode="karting";
 function initStart(){
   // 國家下拉
-  $("#inCountry").innerHTML = COUNTRIES.map(c=>`<option value="${c[1]}">${c[0]} ${c[1]}</option>`).join("");
+  $("#inCountry").innerHTML = COUNTRIES.map(c=>`<option value="${c[1]}">${c[0]} ${cName(c)}</option>`).join("");
+  // 中/EN 語言切換
+  document.querySelectorAll(".lang-btn").forEach(b=> b.onclick = ()=> setLang(b.getAttribute("data-lang")));
   // 模式選擇
   document.querySelectorAll(".mopt").forEach(o=>{
     o.onclick=()=>{ document.querySelectorAll(".mopt").forEach(x=>x.classList.remove("sel")); o.classList.add("sel"); selMode=o.dataset.mode; };
@@ -1301,11 +1395,11 @@ function initStart(){
   // 繼續
   const saved=load();
   if(saved && !saved.over){ $("#continueBtn").style.display="inline-block";
-    $("#continueBtn").textContent=`繼續：${saved.name} · S${saved.season} · ${TIERS[saved.tier].name} ▶`;
+    $("#continueBtn").textContent = L(`繼續：${saved.name} · S${saved.season} · ${tierName(saved.tier)} ▶`, `Continue: ${saved.name} · S${saved.season} · ${tierName(saved.tier)} ▶`);
     $("#continueBtn").onclick=()=>resumeGame(saved); }
   $("#startBtn").onclick=()=>{
     const name=($("#inName").value||"").trim();
-    if(!name){ $("#startErr").textContent="請先輸入車手名字。"; return; }
+    if(!name){ $("#startErr").textContent=tr("err_name"); return; }
     const num=clamp(parseInt($("#inNum").value)||7,1,99);
     const country=$("#inCountry").value;
     const talent=parseInt($("#inTalent").value);
@@ -1316,8 +1410,32 @@ function initStart(){
     setMainBtn("下一場 ▶", nextRace);
   };
   $("#againBtn").onclick=()=>{ $("#retireScreen").classList.remove("show"); $("#startScreen").classList.add("show"); };
+  // 🎲 隨機名字
+  const dice = $("#diceBtn");
+  if(dice) dice.onclick = ()=>{ $("#inName").value = pick(RANDOM_NAMES); $("#startErr").textContent = ""; };
+  applyI18n();                             // 套用目前語言
   fetchPlayCount();                        // 載入時顯示目前全球遊玩次數
 }
+// 級別名稱（依語言）
+function tierName(tk){ return tk==="KART" ? L("卡丁車","Karting") : (TIERS[tk] ? TIERS[tk].name : tk); }
+// 依語言重建動態產生的介面
+function rebuildDynamicUI(){
+  const cs = $("#inCountry");
+  if(cs){ const cur = cs.value; cs.innerHTML = COUNTRIES.map(c=>`<option value="${c[1]}">${c[0]} ${cName(c)}</option>`).join(""); if(cur) cs.value = cur; }
+  const sv = load();
+  if(sv && !sv.over && $("#continueBtn") && $("#continueBtn").style.display!=="none")
+    $("#continueBtn").textContent = L(`繼續：${sv.name} · S${sv.season} · ${tierName(sv.tier)} ▶`, `Continue: ${sv.name} · S${sv.season} · ${tierName(sv.tier)} ▶`);
+  if(typeof G !== "undefined" && G && G.attrs){ updateAttrs(); updateHeader(); }
+  if(mainBtnLabel && $("#mainBtn")) $("#mainBtn").textContent = L(mainBtnLabel, MAINBTN_EN[mainBtnLabel]||mainBtnLabel);
+  if(lastPlayCount != null) showPlayCount(lastPlayCount);
+  if($("#standingsScreen") && $("#standingsScreen").classList.contains("show") && G && G.field) openStandings();
+}
+let mainBtnLabel = "下一場 ▶", lastPlayCount = null;
+const MAINBTN_EN = {"下一場 ▶":"Next Race ▶","🏁 結算賽季":"🏁 End Season"};
+// 隨機車手名字池（點骰子時使用）
+const RANDOM_NAMES = ["Ace","Max","Leo","Kai","Nico","Theo","Enzo","Rio","Ryu","Jin","Vito","Dario","Marco","Luca",
+  "Noah","Ethan","Ivan","Omar","Zane","Rex","Dax","Cole","Finn","Milo","Rafa","Sena","Ayrton","Niki","Mika","Emil",
+  "阿賢","小杰","阿飛","阿翔","子軒","家豪","冠宇","志明","建宏","俊傑","小龍","阿凱"];
 
 /* ========================================================= */
 /*  全球總遊玩次數（免費計數 API：Abacus，免註冊、支援 CORS）  */
@@ -1327,8 +1445,9 @@ const COUNT_API = "https://abacus.jasoncameron.dev";
 const COUNT_NS  = "f1careerlifesim";   // 命名空間（可自訂，改了要先呼叫 /create 建立）
 const COUNT_KEY = "plays";
 function showPlayCount(n){
+  if(typeof n === "number") lastPlayCount = n;
   const el = $("#playCount");
-  if(el && typeof n === "number") el.textContent = `🌍 全球已開始 ${n.toLocaleString()} 段生涯`;
+  if(el && typeof n === "number") el.textContent = L(`🌍 全球已開始 ${n.toLocaleString()} 段生涯`, `🌍 ${n.toLocaleString()} careers started worldwide`);
 }
 // Abacus 的 key 必須先 create 才會被 get 看到；抓不到就自動建立
 function fetchPlayCount(){
@@ -1404,6 +1523,56 @@ function openUpdates(){
   const inner = document.querySelector("#updatesScreen .sinner"); if(inner) inner.scrollTop = 0;
 }
 { const bk = $("#updatesBack"); if(bk) bk.onclick = ()=> $("#updatesScreen").classList.remove("show"); }
+
+/* ---------- 目前排行榜頁（本季 WDC / WCC） ---------- */
+function openStandings(){
+  if(!G || !G.field){ return; }
+  const t = TIERS[G.tier];
+  $("#standingsSub").textContent = `賽季 ${G.season} · 第 ${G.round} / ${t.races} 站 · ${t.name}`;
+  // 車手榜 WDC
+  const drivers = [...G.field].sort((a,b)=> b.pts - a.pts || b.wins - a.wins);
+  $("#wdcTable").innerHTML = `<table class="mini-tbl">` + drivers.map((e,i)=>
+    `<tr class="${e.isMe?'me':''}"><td class="mp">${i+1}</td><td>${e.isMe?G.name:e.label}</td><td class="mpt">${e.pts}</td></tr>`
+  ).join("") + `</table>`;
+  // 玩家目前名次與分數
+  const meIdx = drivers.findIndex(e=>e.isMe);
+  const mePts = meIdx>=0 ? drivers[meIdx].pts : 0;
+  $("#standingsMe").innerHTML = `你目前 <b>WDC 第 ${meIdx+1} 名</b>　·　<b>${mePts} 分</b>`;
+  // 本季各站戰報（冠軍 + 玩家結果）
+  const rounds = (G.seasonStat && G.seasonStat.rounds) || [];
+  $("#roundsTable").innerHTML = rounds.length ? `<table class="mini-tbl">` + rounds.map((r,i)=>{
+    const win = r.winnerMe ? `<b style="color:var(--gold)">🏆 ${r.winner}</b>` : `🏆 ${r.winner}`;
+    const meRes = r.myPos==="DNF" ? `<span style="color:var(--red)">DNF</span>`
+                : r.myPos==="DNS" ? `<span style="color:var(--lgrey)">DNS</span>`
+                : `P${r.myPos} · +${r.myPts}`;
+    return `<tr class="${r.winnerMe?'me':''}"><td class="mp">R${i+1}</td><td>${r.track}　${win}</td><td class="mpt">${meRes}</td></tr>`;
+  }).join("") + `</table>` : `<div class="muted" style="padding:12px;text-align:center">本季尚未開賽</div>`;
+  // 車隊榜 WCC（僅 F1；青訓為統一規格車、無車隊）
+  const wccCol = $("#wccCol");
+  if(G.tier === "F1"){
+    const teams = {};
+    G.field.forEach(e=>{ if(e.teamKey) teams[e.teamKey] = (teams[e.teamKey]||0) + e.pts; });
+    const arr = Object.keys(teams).map(k=>({key:k, name:teamByKey(k)?.name||k, pts:teams[k]})).sort((a,b)=>b.pts-a.pts);
+    $("#wccTable").innerHTML = `<table class="mini-tbl">` + arr.map((tm,i)=>
+      `<tr class="${tm.key===G.teamKey?'me':''}"><td class="mp">${i+1}</td><td>${tm.name}</td><td class="mpt">${tm.pts}</td></tr>`
+    ).join("") + `</table>`;
+    wccCol.style.display = "";
+  } else {
+    wccCol.style.display = "none";
+  }
+  $("#standingsScreen").classList.add("show");
+  // 自動捲到自己在車手榜的位置
+  requestAnimationFrame(()=>{
+    const meRow = $("#wdcTable").querySelector("tr.me");
+    const box = meRow && meRow.closest(".st-box");
+    if(meRow && box){
+      const br = box.getBoundingClientRect(), rr = meRow.getBoundingClientRect();
+      box.scrollTop += (rr.top - br.top) - box.clientHeight/2 + rr.height/2;
+    }
+  });
+}
+{ const sb = $("#standingsBtn"); if(sb) sb.onclick = openStandings;
+  const bk = $("#standingsBack"); if(bk) bk.onclick = ()=> $("#standingsScreen").classList.remove("show"); }
 
 /* ---------- 綁定 ---------- */
 $("#mainBtn").onclick = ()=>nextRace();

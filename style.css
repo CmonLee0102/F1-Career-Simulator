@@ -172,6 +172,12 @@
   .slogo{display:flex;align-items:center;gap:11px;font-size:20px;font-weight:900;margin-bottom:4px}
   .slogo .logo{font-weight:900;font-size:24px;font-style:italic;background:var(--red);color:#fff;padding:2px 11px;border-radius:5px}
   .ssub{color:var(--lgrey);font-size:14px;margin-bottom:22px}
+  /* 中/EN 語言切換 */
+  .lang-toggle{display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px}
+  .lang-btn{background:var(--dark);border:1px solid var(--grey);color:var(--lgrey);border-radius:6px;
+    padding:4px 12px;font-size:12px;font-weight:800;cursor:pointer;transition:.15s;font-family:inherit}
+  .lang-btn:hover{border-color:var(--red);color:var(--white)}
+  .lang-btn.on{background:var(--red);border-color:var(--red);color:#fff}
   /* 標題與新聞條同一列 */
   .slogo-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
   .slogo-row .slogo{margin-bottom:0;flex:0 0 auto}
@@ -201,6 +207,23 @@
     border:1px solid var(--lgrey);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:800;
     cursor:pointer;transition:.15s;font-family:inherit;white-space:nowrap}
   .up-back:hover{background:var(--red);border-color:var(--red);transform:translateY(-1px)}
+
+  /* ===== 目前排行榜頁 ===== */
+  #standingsScreen .sinner{max-width:620px}
+  .standings-wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  @media(max-width:560px){.standings-wrap{grid-template-columns:1fr;gap:8px}}
+  .st-col{min-width:0}
+  .st-box{background:linear-gradient(180deg,#191921,#141419);border:1px solid var(--grey);border-radius:10px;
+    padding:4px 10px;max-height:340px;overflow-y:auto;box-shadow:inset 0 2px 10px rgba(0,0,0,.4)}
+  .st-box::-webkit-scrollbar{width:7px}
+  .st-box::-webkit-scrollbar-thumb{background:var(--red);border-radius:4px}
+  .st-box .mini-tbl td{padding:7px 5px}
+  .st-me{background:linear-gradient(90deg,rgba(225,6,0,.25),rgba(225,6,0,.06));border:1px solid rgba(225,6,0,.5);
+    border-radius:9px;padding:9px 13px;margin:0 0 16px;font-size:14px;font-weight:700;color:var(--white)}
+  .st-me b{color:var(--gold)}
+  #roundsTable{margin-bottom:18px}
+  #roundsTable .mini-tbl td:nth-child(2){white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:1px;width:99%}
+  #roundsTable .mini-tbl td.mpt{white-space:nowrap;text-align:right;padding-left:8px}
   .updates-masonry{columns:2;column-gap:12px;margin:6px 0 20px}
   @media(max-width:420px){.updates-masonry{columns:1}}
   .update-card{break-inside:avoid;display:inline-block;width:100%;margin:0 0 12px;padding:13px 15px;border-radius:12px;
@@ -222,6 +245,13 @@
     padding:12px 13px;font-size:16px;font-weight:600;outline:none;transition:.15s;font-family:inherit}
   .field input:focus,.field select:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(225,6,0,.2)}
   .row{display:flex;gap:11px}.row .grow{flex:1}.row .n{width:92px}.row .n input{text-align:center;font-family:var(--num)}
+  /* 名字欄 + 隨機骰子鈕 */
+  .name-row{display:flex;gap:8px}
+  .name-row input{flex:1;min-width:0}
+  .dice-btn{flex:0 0 auto;width:48px;background:var(--dark);border:1px solid var(--grey);border-radius:8px;
+    color:var(--white);font-size:22px;line-height:1;cursor:pointer;transition:.15s}
+  .dice-btn:hover{border-color:var(--red);background:rgba(225,6,0,.14);transform:translateY(-1px)}
+  .dice-btn:active{transform:rotate(20deg) scale(.95)}
   .mode-pick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .mopt{border:1px solid var(--grey);border-radius:8px;padding:11px;cursor:pointer;background:var(--dark);transition:.15s}
   .mopt:hover{border-color:var(--lgrey)}
