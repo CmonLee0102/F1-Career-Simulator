@@ -128,12 +128,12 @@
   .rs-mate{text-align:center;font-size:12.5px;color:var(--lgrey);margin:-2px 0 10px;min-height:17px;font-weight:700;letter-spacing:.3px}
   .rs-mate b{color:var(--white)}
   .rs-mate .up{color:var(--green)}.rs-mate .dn{color:var(--red)}
-  .rs-track-bar{position:relative;height:42px;margin:4px 0 14px;border-radius:21px;
+  .rs-track-bar{position:relative;height:54px;margin:4px 0 14px;border-radius:27px;
     background:linear-gradient(180deg,#1b1b24,#141419);border:1px solid var(--grey);overflow:hidden}
   .rs-track-bar::before{content:"";position:absolute;top:50%;left:0;right:0;height:2px;transform:translateY(-50%);
     background:repeating-linear-gradient(90deg,rgba(255,255,255,.22) 0 14px,transparent 14px 28px)}
-  .rs-car{position:absolute;top:50%;left:5%;transform:translateY(-50%) scaleX(-1);font-size:24px;transition:left .18s linear;
-    filter:drop-shadow(0 0 6px rgba(225,6,0,.6))}
+  .rs-car{position:absolute;top:50%;left:5%;transform:translateY(-50%) scaleX(-1);font-size:38px;transition:left .18s linear;
+    filter:drop-shadow(0 0 8px rgba(225,6,0,.7))}
   .rs-tower{flex:1;overflow:hidden;background:linear-gradient(180deg,#16161d,#101015);border-radius:12px;border:1px solid var(--grey);padding:6px}
   .tw-row{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:7px;font-size:13px;transition:.28s ease}
   .tw-row .tw-p{font-family:var(--num);font-weight:800;width:26px;text-align:center;color:var(--lgrey)}
@@ -178,12 +178,19 @@
   .slogo{display:flex;align-items:center;gap:11px;font-size:20px;font-weight:900;margin-bottom:4px}
   .slogo .logo{font-weight:900;font-size:24px;font-style:italic;background:var(--red);color:#fff;padding:2px 11px;border-radius:5px}
   .ssub{color:var(--lgrey);font-size:14px;margin-bottom:22px}
-  /* 中/EN 語言切換 */
-  .lang-toggle{display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px}
-  .lang-btn{background:var(--dark);border:1px solid var(--grey);color:var(--lgrey);border-radius:6px;
+  /* 中/EN 語言切換 + 里程碑橫幅 */
+  .lang-toggle{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .lang-btn{flex:0 0 auto;background:var(--dark);border:1px solid var(--grey);color:var(--lgrey);border-radius:6px;
     padding:4px 12px;font-size:12px;font-weight:800;cursor:pointer;transition:.15s;font-family:inherit}
   .lang-btn:hover{border-color:var(--red);color:var(--white)}
   .lang-btn.on{background:var(--red);border-color:var(--red);color:#fff}
+  .ms-badge{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;transition:.15s;
+    background:linear-gradient(90deg,rgba(225,6,0,.22),rgba(255,213,74,.08));border:1px solid rgba(225,6,0,.55);
+    border-radius:7px;padding:6px 12px;font-size:12px;font-weight:800;color:var(--gold)}
+  .ms-badge:hover{background:linear-gradient(90deg,rgba(225,6,0,.38),rgba(255,213,74,.14));transform:translateY(-1px);box-shadow:0 3px 12px rgba(225,6,0,.25)}
+  /* 里程碑頁 */
+  .ms-inner{max-width:1000px}
+  .milestone-img{width:100%;height:auto;display:block;border-radius:12px;border:1px solid var(--grey);box-shadow:0 10px 40px rgba(0,0,0,.55)}
   /* 標題與新聞條同一列 */
   .slogo-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
   .slogo-row .slogo{margin-bottom:0;flex:0 0 auto}

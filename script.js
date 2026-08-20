@@ -45,6 +45,8 @@ const DICT = {
   hd_wdc:["🏆 車手榜 WDC","🏆 Drivers WDC"], hd_wcc:["🏭 車隊榜 WCC","🏭 Constructors WCC"], hd_report:["🏁 本季各站戰報","🏁 Season Results"],
   hd_updates_sub:["點卡片看每一項改動 · v1.8 🏁","Tap a card for each change · v1.8 🏁"],
   app_title:["LIFE · 車手生涯","LIFE · Driver Career"],
+  ms_badge:["🏁 F1 LIFE · 車手生涯 — 全球已開始賽車手生涯數突破 2,000！","🏁 F1 LIFE · Driver Career — Over 2,000 careers started worldwide!"],
+  ms_title:["里程碑","Milestone"],
 };
 function tr(key){ const d = DICT[key]; return d ? L(d[0], d[1]) : key; }
 function applyI18n(){
@@ -1573,6 +1575,9 @@ function openStandings(){
 }
 { const sb = $("#standingsBtn"); if(sb) sb.onclick = openStandings;
   const bk = $("#standingsBack"); if(bk) bk.onclick = ()=> $("#standingsScreen").classList.remove("show"); }
+// 里程碑橫幅 → 里程碑頁
+{ const mb = $("#milestoneBadge"); if(mb) mb.onclick = ()=> $("#milestoneScreen").classList.add("show");
+  const mbk = $("#milestoneBack"); if(mbk) mbk.onclick = ()=> $("#milestoneScreen").classList.remove("show"); }
 
 /* ---------- 綁定 ---------- */
 $("#mainBtn").onclick = ()=>nextRace();
