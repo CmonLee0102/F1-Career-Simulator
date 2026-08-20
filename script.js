@@ -45,8 +45,8 @@ const DICT = {
   hd_wdc:["🏆 車手榜 WDC","🏆 Drivers WDC"], hd_wcc:["🏭 車隊榜 WCC","🏭 Constructors WCC"], hd_report:["🏁 本季各站戰報","🏁 Season Results"],
   hd_updates_sub:["點卡片看每一項改動 · v1.8 🏁","Tap a card for each change · v1.8 🏁"],
   app_title:["LIFE · 車手生涯","LIFE · Driver Career"],
-  ms_badge:["🏁 F1 LIFE · 車手生涯 — 全球已開始賽車手生涯數突破 2,000！","🏁 F1 LIFE · Driver Career — Over 2,000 careers started worldwide!"],
-  ms_title:["里程碑","Milestone"],
+  ms_badge:["🏁 F1 LIFE · 車手生涯 — 全球已開始賽車手生涯數突破 3,000！","🏁 F1 LIFE · Driver Career — Over 3,000 careers started worldwide!"],
+  ms_title:["里程碑","Milestone"], lk_txt:["讚","Like"],
 };
 function tr(key){ const d = DICT[key]; return d ? L(d[0], d[1]) : key; }
 function applyI18n(){
@@ -1466,6 +1466,34 @@ function bumpPlayCount(){
     .catch(()=>{});
 }
 
+/* ---------- 里程碑頁按讚（每台裝置限一次） ---------- */
+const LIKE_KEY = "likes";
+let likedAlready = false; try{ likedAlready = localStorage.getItem("f1life_liked") === "1"; }catch(e){}
+function renderLikeBtn(){
+  const b = $("#likeBtn"); if(!b) return;
+  b.classList.toggle("liked", likedAlready);
+  const ic = b.querySelector(".lk-ic"); if(ic) ic.textContent = likedAlready ? "❤️" : "👍";
+  const tx = b.querySelector(".lk-txt"); if(tx) tx.textContent = likedAlready ? L("已讚","Liked") : L("讚","Like");
+}
+function showLikeCount(n){
+  if(typeof n === "number"){ const el=$("#likeCount"); if(el) el.textContent = n.toLocaleString(); }
+  renderLikeBtn();
+}
+function fetchLikeCount(){
+  fetch(`${COUNT_API}/get/${COUNT_NS}/${LIKE_KEY}`)
+    .then(r=> r.ok ? r.json() : fetch(`${COUNT_API}/create/${COUNT_NS}/${LIKE_KEY}`).then(()=>({value:0})))
+    .then(d=>{ if(d && typeof d.value==="number") showLikeCount(d.value); }).catch(()=>{});
+}
+function doLike(){
+  if(likedAlready) return;
+  likedAlready = true; try{ localStorage.setItem("f1life_liked","1"); }catch(e){}
+  renderLikeBtn();
+  const hit = ()=> fetch(`${COUNT_API}/hit/${COUNT_NS}/${LIKE_KEY}`).then(r=>r.json());
+  fetch(`${COUNT_API}/get/${COUNT_NS}/${LIKE_KEY}`)
+    .then(r=> r.ok ? hit() : fetch(`${COUNT_API}/create/${COUNT_NS}/${LIKE_KEY}`).then(hit))
+    .then(d=>{ if(d && typeof d.value==="number") showLikeCount(d.value); }).catch(()=>{});
+}
+
 /* ---------- 首頁跑馬燈新聞條 ---------- */
 const NEWS_TEXT = "🏁 最新更新！📈 退休新增生涯排名走勢折線圖，看盡每季名次起伏；📋 季末合約先列前三隊＋退役鈕、其餘一鍵展開；⚔️ 隊友對決：跟同隊明星車手逐場較勁，直播即時顯示領先/落後，壓制隊友加聲望還能保住席位；🏆 名氣夠就能自由挑選整個範圍的車隊，不再被塞兩三支；📊 車隊行情看實戰成績為主，新秀要跑出成績才上頂隊（不會第二季就紅牛）；🤝 先選車隊才簽代言、大品牌需成名＋贏過比賽；🌈 奪世界冠軍流動彩色慶祝；🛞 賽中策略決策：進站選胎、天氣賭雨胎、Push／Save；🎯 退休顯示與你最相似的真實車手；💰 資產投資、⚠️ 突發傷病、🌍 全球遊玩次數。快展開屬於你的傳奇 🏆";
 function initNews(){
@@ -1575,9 +1603,23 @@ function openStandings(){
 }
 { const sb = $("#standingsBtn"); if(sb) sb.onclick = openStandings;
   const bk = $("#standingsBack"); if(bk) bk.onclick = ()=> $("#standingsScreen").classList.remove("show"); }
-// 里程碑橫幅 → 里程碑頁
-{ const mb = $("#milestoneBadge"); if(mb) mb.onclick = ()=> $("#milestoneScreen").classList.add("show");
-  const mbk = $("#milestoneBack"); if(mbk) mbk.onclick = ()=> $("#milestoneScreen").classList.remove("show"); }
+// 里程碑清單（最新在最上面；日期可自行調整）
+const MILESTONES = [
+  {img:"milestone3000.png", date:"2026-08-20", label:"全球已開始賽車手生涯數突破 3,000", labelEn:"Over 3,000 careers started worldwide"},
+  {img:"milestone2000.png", date:"2026-08-19", label:"全球已開始賽車手生涯數突破 2,000", labelEn:"Over 2,000 careers started worldwide"},
+];
+function renderMilestones(){
+  const box = $("#milestoneList"); if(!box) return;
+  box.innerHTML = MILESTONES.map(m=>
+    `<div class="ms-item"><div class="ms-date">📅 ${m.date}</div>`+
+    `<img src="${m.img}" class="milestone-img" alt="${m.label}">`+
+    `<div class="ms-caption">${L(m.label, m.labelEn||m.label)}</div></div>`
+  ).join("");
+}
+// 里程碑橫幅 → 里程碑頁（開啟時渲染清單 + 抓取讚數）
+{ const mb = $("#milestoneBadge"); if(mb) mb.onclick = ()=>{ renderMilestones(); $("#milestoneScreen").classList.add("show"); fetchLikeCount(); };
+  const mbk = $("#milestoneBack"); if(mbk) mbk.onclick = ()=> $("#milestoneScreen").classList.remove("show");
+  const lk = $("#likeBtn"); if(lk) lk.onclick = doLike; }
 
 /* ---------- 綁定 ---------- */
 $("#mainBtn").onclick = ()=>nextRace();

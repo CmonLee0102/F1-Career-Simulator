@@ -191,6 +191,20 @@
   /* 里程碑頁 */
   .ms-inner{max-width:1000px}
   .milestone-img{width:100%;height:auto;display:block;border-radius:12px;border:1px solid var(--grey);box-shadow:0 10px 40px rgba(0,0,0,.55)}
+  .ms-item{margin-bottom:22px}
+  .ms-date{font-family:var(--num);font-size:13px;font-weight:800;color:var(--gold);letter-spacing:.5px;margin-bottom:7px}
+  .ms-item .ms-caption{font-size:12px;color:var(--lgrey);margin-top:6px;text-align:center}
+  .like-wrap{display:flex;justify-content:center;margin:18px 0 6px}
+  .like-btn{display:inline-flex;align-items:center;gap:8px;font-size:16px;font-weight:800;cursor:pointer;
+    padding:11px 26px;border-radius:24px;color:var(--white);font-family:inherit;transition:.15s;
+    background:linear-gradient(180deg,#2c2c35,#20202a);border:1px solid var(--grey)}
+  .like-btn .lk-ic{font-size:20px;line-height:1}
+  .like-btn b{color:var(--gold);font-family:var(--num)}
+  .like-btn:hover{border-color:var(--red);transform:translateY(-2px);box-shadow:0 6px 18px rgba(225,6,0,.25)}
+  .like-btn:active{transform:scale(.96)}
+  .like-btn.liked{background:linear-gradient(180deg,#ff2a20,var(--red));border-color:var(--red)}
+  .like-btn.liked:hover{transform:none;box-shadow:none;cursor:default}
+  .like-btn.liked b{color:#fff}
   /* 標題與新聞條同一列 */
   .slogo-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
   .slogo-row .slogo{margin-bottom:0;flex:0 0 auto}
