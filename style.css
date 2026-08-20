@@ -194,7 +194,7 @@
   .ms-item{margin-bottom:22px}
   .ms-date{font-family:var(--num);font-size:13px;font-weight:800;color:var(--gold);letter-spacing:.5px;margin-bottom:7px}
   .ms-item .ms-caption{font-size:12px;color:var(--lgrey);margin-top:6px;text-align:center}
-  .like-wrap{display:flex;justify-content:center;margin:18px 0 6px}
+  .like-wrap{display:flex;justify-content:center;margin:4px 0 18px}
   .like-btn{display:inline-flex;align-items:center;gap:8px;font-size:16px;font-weight:800;cursor:pointer;
     padding:11px 26px;border-radius:24px;color:var(--white);font-family:inherit;transition:.15s;
     background:linear-gradient(180deg,#2c2c35,#20202a);border:1px solid var(--grey)}
