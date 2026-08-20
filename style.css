@@ -7,6 +7,7 @@
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;overflow-x:hidden}
   body{
+    zoom:0.9;   /* 整體畫面比例 90% */
     font-family:"Titillium Web","Segoe UI",Arial,sans-serif;color:var(--white);line-height:1.5;
     -webkit-font-smoothing:antialiased;
     background:
@@ -15,7 +16,7 @@
       var(--black);
     background-attachment:fixed;
   }
-  #app{max-width:620px;margin:0 auto;height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;
+  #app{max-width:calc(620px / 0.9);margin:0 auto;height:calc(100vh / 0.9);height:calc(100dvh / 0.9);overflow:hidden;display:flex;flex-direction:column;
     background:linear-gradient(180deg, rgba(13,13,19,.86), rgba(13,13,19,.94));box-shadow:0 0 60px rgba(0,0,0,.6)}
   .num,.big,.stat-val,.attr-num,#hAge,.res-pos{font-family:var(--num)}
 
