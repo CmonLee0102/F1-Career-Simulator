@@ -35,6 +35,7 @@ const DICT = {
   dice_title:["隨機名字","Random name"],
   err_name:["請先輸入車手名字。","Please enter a driver name first."],
   news_label:["📢 最新消息","📢 NEWS"], news_title:["點我前往「車隊負責人」","Play F1 Life · Team Principal"],
+  community_msg:["請點選以下連結加入社群！","Tap the link below to join our community!"], community_btn:["加入 LINE 社群","Join LINE Community"],
   st_age:["年齡","Age"], st_sr:["賽季 · 分站","Season · Round"], st_rep:["聲望","Fame"], st_pts:["積分","Points"], st_money:["資產","Money"],
   attr_pace:["速度","Pace"], attr_craft:["車技","Craft"], attr_cons:["穩定","Consist."], attr_wet:["濕地","Wet"], attr_fit:["體能","Fitness"],
   btn_next:["下一場 ▶","Next Race ▶"], btn_endseason:["🏁 結算賽季","🏁 End Season"], btn_ff:["⏩ 整季","⏩ Season"],
