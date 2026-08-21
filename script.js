@@ -34,7 +34,7 @@ const DICT = {
   start_btn:["🏁 展開生涯","🏁 Start Career"],
   dice_title:["隨機名字","Random name"],
   err_name:["請先輸入車手名字。","Please enter a driver name first."],
-  news_label:["📢 最新消息","📢 NEWS"], news_title:["點我看完整更新內容","Tap to see full update notes"],
+  news_label:["📢 最新消息","📢 NEWS"], news_title:["點我前往「車隊負責人」","Play F1 Life · Team Principal"],
   st_age:["年齡","Age"], st_sr:["賽季 · 分站","Season · Round"], st_rep:["聲望","Fame"], st_pts:["積分","Points"], st_money:["資產","Money"],
   attr_pace:["速度","Pace"], attr_craft:["車技","Craft"], attr_cons:["穩定","Consist."], attr_wet:["濕地","Wet"], attr_fit:["體能","Fitness"],
   btn_next:["下一場 ▶","Next Race ▶"], btn_endseason:["🏁 結算賽季","🏁 End Season"], btn_ff:["⏩ 整季","⏩ Season"],
@@ -1495,14 +1495,15 @@ function doLike(){
 }
 
 /* ---------- 首頁跑馬燈新聞條 ---------- */
-const NEWS_TEXT = "🏁 最新更新！📈 退休新增生涯排名走勢折線圖，看盡每季名次起伏；📋 季末合約先列前三隊＋退役鈕、其餘一鍵展開；⚔️ 隊友對決：跟同隊明星車手逐場較勁，直播即時顯示領先/落後，壓制隊友加聲望還能保住席位；🏆 名氣夠就能自由挑選整個範圍的車隊，不再被塞兩三支；📊 車隊行情看實戰成績為主，新秀要跑出成績才上頂隊（不會第二季就紅牛）；🤝 先選車隊才簽代言、大品牌需成名＋贏過比賽；🌈 奪世界冠軍流動彩色慶祝；🛞 賽中策略決策：進站選胎、天氣賭雨胎、Push／Save；🎯 退休顯示與你最相似的真實車手；💰 資產投資、⚠️ 突發傷病、🌍 全球遊玩次數。快展開屬於你的傳奇 🏆";
+const NEWS_TEXT = "🏁 F1 Life · 車隊負責人已上線，點擊連結前往試玩！！！　👉 https://cmonlee0102.github.io/F1-Team-Principal/";
+const NEWS_URL = "https://cmonlee0102.github.io/F1-Team-Principal/";
 function initNews(){
   const el = $("#newsContent"); if(!el) return;
   const sep = "　　🏁　　";
   el.textContent = (NEWS_TEXT + sep).repeat(2);          // 內容重複兩份，配合 translateX(-50%) 無縫循環
   el.style.animationDuration = Math.max(20, NEWS_TEXT.length * 0.42).toFixed(0) + "s";  // 依字數調整速度
   const tk = $("#newsTicker");
-  if(tk){ tk.title = "點我看完整更新內容"; tk.onclick = openUpdates; }
+  if(tk){ tk.title = L("點我前往「車隊負責人」","Play F1 Life · Team Principal"); tk.onclick = ()=> window.open(NEWS_URL, "_blank", "noopener"); }
 }
 initNews();
 
