@@ -46,7 +46,7 @@ const DICT = {
   hd_wdc:["🏆 車手榜 WDC","🏆 Drivers WDC"], hd_wcc:["🏭 車隊榜 WCC","🏭 Constructors WCC"], hd_report:["🏁 本季各站戰報","🏁 Season Results"],
   hd_updates_sub:["點卡片看每一項改動 · v1.8 🏁","Tap a card for each change · v1.8 🏁"],
   app_title:["LIFE · 車手生涯","LIFE · Driver Career"],
-  ms_badge:["🏁 F1 LIFE · 車手生涯 — 全球已開始賽車手生涯數突破 3,000！","🏁 F1 LIFE · Driver Career — Over 3,000 careers started worldwide!"],
+  ms_badge:["🏁 F1 LIFE · 車手生涯 — 全球已開始賽車手生涯數突破 4,000！","🏁 F1 LIFE · Driver Career — Over 4,000 careers started worldwide!"],
   ms_title:["里程碑","Milestone"], lk_txt:["讚","Like"],
 };
 function tr(key){ const d = DICT[key]; return d ? L(d[0], d[1]) : key; }
@@ -1607,6 +1607,7 @@ function openStandings(){
   const bk = $("#standingsBack"); if(bk) bk.onclick = ()=> $("#standingsScreen").classList.remove("show"); }
 // 里程碑清單（最新在最上面；日期可自行調整）
 const MILESTONES = [
+  {img:"milestone4000.png", date:"2026-08-22", label:"全球已開始賽車手生涯數突破 4,000", labelEn:"Over 4,000 careers started worldwide"},
   {img:"milestone3000.png", date:"2026-08-20", label:"全球已開始賽車手生涯數突破 3,000", labelEn:"Over 3,000 careers started worldwide"},
   {img:"milestone2000.png", date:"2026-08-19", label:"全球已開始賽車手生涯數突破 2,000", labelEn:"Over 2,000 careers started worldwide"},
 ];
